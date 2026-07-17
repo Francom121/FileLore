@@ -84,23 +84,21 @@ final class WindowRouter {
 
     /// Opens (or focuses) the batch tag/note editor for `fileURLs` and brings
     /// the app forward. A single URL keeps the classic behavior: one editor.
+    ///
+    /// Always presented through the AppKit-hosted fallback window: value-based
+    /// `WindowGroup` presentation with an Array value proved to silently no-op,
+    /// so no scene involvement here keeps batch presentation deterministic.
     func openBatchEditor(for fileURLs: [URL]) {
         guard fileURLs.count > 1 else {
             if let only = fileURLs.first { openNoteEditor(for: only) }
             return
         }
-        if let openWindowAction {
-            // Window deduplicates by value: re-presenting the same file set
-            // focuses the existing batch window.
-            openWindowAction(id: "batch-edit", value: fileURLs)
-        } else {
-            presentFallbackWindow(
-                title: "Tether Batch Edit — \(fileURLs.count) files",
-                size: NSSize(width: 560, height: 620),
-                rootView: BatchEditView(fileURLs: fileURLs)
-            )
-        }
-        NSApp.activate()
+        presentFallbackWindow(
+            title: "Tether Batch Edit — \(fileURLs.count) files",
+            size: NSSize(width: 560, height: 620),
+            rootView: BatchEditView(fileURLs: fileURLs)
+        )
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     /// Last-resort window presentation when no SwiftUI `openWindow` action has

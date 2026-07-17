@@ -32,15 +32,6 @@ struct TetherApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 620, height: 520)
 
-        WindowGroup("Batch Edit", id: "batch-edit", for: [URL].self) { $fileURLs in
-            if let fileURLs {
-                BatchEditView(fileURLs: fileURLs)
-            } else {
-                Text("No files")
-            }
-        }
-        .defaultSize(width: 560, height: 620)
-
         Window("Global Shortcuts", id: "settings") {
             SettingsView()
         }

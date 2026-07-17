@@ -30,14 +30,23 @@ struct DropZoneView: View {
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             // Collect every dropped URL first, then route: several files at
             // once open the batch editor instead of N single editors.
-            Task { @MainActor in
-                var urls: [URL] = []
-                for provider in providers {
-                    if let item = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier),
-                       let url = item as? URL {
+            // `loadObject(ofClass: URL.self)` reliably vends URLs for Finder
+            // drags; `loadItem` can hand back Data or a private type instead.
+            let group = DispatchGroup()
+            let lock = NSLock()
+            var urls: [URL] = []
+            for provider in providers {
+                group.enter()
+                _ = provider.loadObject(ofClass: URL.self) { object, _ in
+                    if let url = object {
+                        lock.lock()
                         urls.append(url)
+                        lock.unlock()
                     }
+                    group.leave()
                 }
+            }
+            group.notify(queue: .main) {
                 guard !urls.isEmpty else { return }
                 if urls.count > 1 {
                     WindowRouter.shared.openBatchEditor(for: urls)

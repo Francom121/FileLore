@@ -63,6 +63,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     WindowRouter.shared.openNoteEditor(for: fileURL)
                 } else if url.isFileURL {
                     WindowRouter.shared.openNoteEditor(for: url)
+                } else if url.scheme == "tether" {
+                    // Unknown tether:// link: never drop it silently. This is
+                    // typically app/extension version skew during development
+                    // (an older process received a newer link format).
+                    NSLog("Tether: unrecognized tether URL: %@", url.absoluteString)
+                    self.showAlert(
+                        title: "Tether Doesn't Understand That Link",
+                        message: "This Tether version doesn't understand that link. If you just rebuilt, relaunch the app (⌘R) and try again."
+                    )
                 }
             }
         }

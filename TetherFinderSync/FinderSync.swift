@@ -188,6 +188,28 @@ final class FinderSync: FIFinderSync {
         }
     }
 
+    /// The `.app` bundle that contains this extension, derived from
+    /// `Bundle.main.bundleURL` (`Tether.app/Contents/PlugIns/TetherFinderSync.appex`
+    /// → three parents up). Opening `tether://` URLs *at this app specifically*
+    /// (instead of letting LaunchServices pick a handler) guarantees the copy
+    /// that was just built receives the link — no ambiguity when stale Tether
+    /// processes or old builds are still running.
+    private static var containerAppURL: URL {
+        Bundle.main.bundleURL
+            .deletingLastPathComponent() // → Contents/PlugIns
+            .deletingLastPathComponent() // → Contents
+            .deletingLastPathComponent() // → Tether.app
+    }
+
+    /// Opens a `tether://` URL in this extension's own container app.
+    private static func openInContainerApp(_ url: URL) {
+        NSWorkspace.shared.open(
+            [url],
+            withApplicationAt: containerAppURL,
+            configuration: NSWorkspace.OpenConfiguration()
+        )
+    }
+
     @IBAction func openTetherNote(_ sender: AnyObject?) {
         let controller = FIFinderSyncController.default()
         var urls = controller.selectedItemURLs() ?? []
@@ -201,7 +223,7 @@ final class FinderSync: FIFinderSync {
         components.host = "open"
         components.queryItems = [URLQueryItem(name: "path", value: fileURL.path(percentEncoded: false))]
         if let url = components.url {
-            NSWorkspace.shared.open(url)
+            Self.openInContainerApp(url)
         }
     }
 
@@ -229,7 +251,7 @@ final class FinderSync: FIFinderSync {
         components.host = "batch"
         components.queryItems = [URLQueryItem(name: "ref", value: ref)]
         if let url = components.url {
-            NSWorkspace.shared.open(url)
+            Self.openInContainerApp(url)
         }
     }
 }
