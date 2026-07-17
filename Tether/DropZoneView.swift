@@ -13,7 +13,7 @@ struct DropZoneView: View {
                 .foregroundStyle(isTargeted ? Color.accentColor : .secondary)
             Text("Drop a file to attach a note")
                 .font(.title2.weight(.semibold))
-            Text("You can also drop files onto the Tether Dock icon,\nor right-click a file in Finder → Tether.")
+            Text("You can also drop files onto the Tether Dock icon,\nright-click a file in Finder → Add/Edit Tether Note,\nor select a file in Finder and press ⌥T.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -42,5 +42,6 @@ struct DropZoneView: View {
                 openWindow(id: "note-editor", value: url)
             }
         }
+        .onAppear { WindowRouter.shared.register(openWindow) }
     }
 }

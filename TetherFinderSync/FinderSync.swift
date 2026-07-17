@@ -8,12 +8,47 @@ final class FinderSync: FIFinderSync {
 
     private static let badgeIdentifier = "TetherNote"
 
+    /// Directories Finder should observe for badges and context menus.
+    ///
+    /// The extension is sandboxed, so `homeDirectoryForCurrentUser` /
+    /// `NSHomeDirectory()` return the sandbox container, not the real home —
+    /// derive the real home from the logged-in username instead. iCloud Drive's
+    /// "Desktop & Documents Folders" sync keeps the real files under
+    /// `~/Library/Mobile Documents/com~apple~CloudDocs`, which Finder displays
+    /// by that path, so those folders are monitored explicitly when present.
+    private static func monitoredDirectoryURLs() -> [URL] {
+        let fileManager = FileManager.default
+
+        let userName = NSUserName()
+        let realHome: URL
+        if !userName.isEmpty,
+           fileManager.fileExists(atPath: "/Users/\(userName)") {
+            realHome = URL(fileURLWithPath: "/Users/\(userName)", isDirectory: true)
+        } else {
+            realHome = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        }
+
+        var urls = [realHome]
+
+        let cloudDocs = realHome.appendingPathComponent(
+            "Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
+        for folder in ["Documents", "Desktop"] {
+            let url = cloudDocs.appendingPathComponent(folder, isDirectory: true)
+            if fileManager.fileExists(atPath: url.path(percentEncoded: false)) {
+                urls.append(url)
+            }
+        }
+
+        NSLog("TetherFinderSync monitoring %@",
+              urls.map { $0.path(percentEncoded: false) }.joined(separator: ", "))
+        return urls
+    }
+
     override init() {
         super.init()
         NSLog("TetherFinderSync launched from %@", Bundle.main.bundlePath as NSString)
 
-        // Watch the user's home directory.
-        FIFinderSyncController.default().directoryURLs = [FileManager.default.homeDirectoryForCurrentUser]
+        FIFinderSyncController.default().directoryURLs = Set(FinderSync.monitoredDirectoryURLs())
 
         let image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "Tether Note")
             ?? NSImage(named: NSImage.actionTemplateName)!

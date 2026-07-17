@@ -2,6 +2,8 @@ import SwiftUI
 
 @main
 struct TetherApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
         WindowGroup("Tether", id: "main") {
             DropZoneView()

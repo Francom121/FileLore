@@ -68,7 +68,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				TetherQuickLook.entitlements,
 			);
 			target = AA00000000000000000000F2 /* TetherQuickLook */;
 		};
@@ -76,7 +75,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				TetherFinderSync.entitlements,
 			);
 			target = AA00000000000000000000F3 /* TetherFinderSync */;
 		};
@@ -88,10 +86,6 @@
 			exceptions = (
 				AA00000000000000000000C4 /* Exceptions for "Tether" folder in "Tether" target */,
 			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
 			path = Tether;
 			sourceTree = "<group>";
 		};
@@ -100,10 +94,6 @@
 			exceptions = (
 				AA00000000000000000000C5 /* Exceptions for "TetherQuickLook" folder in "TetherQuickLook" target */,
 			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
 			path = TetherQuickLook;
 			sourceTree = "<group>";
 		};
@@ -111,10 +101,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				AA00000000000000000000C6 /* Exceptions for "TetherFinderSync" folder in "TetherFinderSync" target */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
 			);
 			path = TetherFinderSync;
 			sourceTree = "<group>";

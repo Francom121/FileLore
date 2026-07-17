@@ -78,25 +78,45 @@ Or open `Tether.xcodeproj` in Xcode 26 and build the **Tether** scheme (⌘B).
 
 ## Usage
 
-- Drop a file onto the Tether window (or onto the Dock icon) to open its note editor.
+### How to view/edit a note
+
+- **⌥T (Option-T)** — select a file in Finder and press ⌥T to open its note editor.
+  The first press triggers a one-time *"Tether wants to control Finder"* permission
+  dialog; approve it once. If nothing is selected, Tether shows the drop-zone window.
+- **Finder right-click → Add/Edit Tether Note** — provided by the Finder Sync
+  extension; also available as a Finder toolbar button.
+- **Finder right-click → Services / Quick Actions → Open Tether Note** — a macOS
+  Service that accepts selected files. You can assign it *any* shortcut you like:
+  **System Settings → Keyboard → Keyboard Shortcuts → Services → Open Tether Note**.
+- **Menu bar** — the Tether icon lists the 10 most recently noted files.
+  **Click** opens the note editor; **⌥-click** reveals the file in Finder.
+- **Drop zone / Dock icon** — drop a file onto the Tether window or Dock icon.
+- **`tether://open?path=...`** — opens the editor for a file (used internally by
+  the Finder Sync context menu).
+- **Spacebar (Quick Look)** — for media files (video, images, audio, PDFs…) the
+  system's default previewer always wins, so spacebar keeps showing the normal
+  preview/player. Tether's Quick Look extension only kicks in as a fallback for
+  file types that have no system previewer.
+
+### Editing
+
 - Editor: multiline body, comma-separated tags, template menu (Blank / AI Generation),
   drop files into **Linked Files** to attach them as bookmarks, Save / Delete Note / Copy.
-- `tether://open?path=...` opens the editor for a file (used by the Finder Sync
-  context menu item "Add/Edit Tether Note").
 - Finder: files with notes get a `note.text` badge (requires the Finder Sync extension).
-- Quick Look: spacebar on a noted file shows the note (requires the Quick Look extension).
-- Menu bar: the Tether icon lists the 10 most recently noted files; click to reveal in Finder.
 
 ## Current limitations
 
-- **Broad Quick Look claim:** the Quick Look extension declares `public.data` as its
-  supported content type, so once enabled it can shadow the *default* Quick Look preview
-  for files without notes (they show "no preview available" instead of the normal preview).
-  This will be refined in a later milestone (e.g. narrower types or a smarter fallback).
+- **Quick Look as fallback only:** the Quick Look extension declares `public.data`,
+  but in practice macOS prefers the *most specific* preview generator, so files
+  with a system previewer (media, PDFs, etc.) keep their default spacebar preview.
+  Tether's preview appears only for types no other generator claims. A dedicated
+  "view note" gesture for media files is ⌥T or the right-click menu instead.
 - Templates are built-in only; the UserDefaults-backed store for custom templates exists
   but the editing UI is future work.
 - Finder Sync badge refresh is event-driven by Finder; after editing a note outside
-  Finder's view, the badge may appear only when the folder is next observed.
+  Finder's view, the badge may appear only when the folder is next observed. After
+  updating the app, Finder may need to re-observe a folder (open it / right-click
+  inside it) before badges and the context menu show up there.
 - Notes do not follow files copied to other volumes/cloud drives (xattr limitation,
   by design of the storage model).
 - Linked files: single click opens in the default app; inline Quick Look preview of
@@ -108,10 +128,12 @@ Or open `Tether.xcodeproj` in Xcode 26 and build the **Tether** scheme (⌘B).
 2. ✅ Drag-and-drop app for creating/editing notes (text) — drop zone, Dock-icon open, per-file editor windows.
 3. ✅ Security-scoped bookmark logic for linked files + broken link/relink handling.
 4. ✅ Web link auto-detection in note text — clickable in editor preview, Quick Look, and copy flows.
-5. ⬜ Quick Look extension — **scaffolding done** (target builds, embeds, renders notes); runtime approval + shadowing refinement pending.
-6. ⬜ Finder Sync extension — **scaffolding done** (badges + context menu compile and embed); runtime verification pending.
+5. ✅ Quick Look extension — renders the note for file types no system previewer claims; media files keep the default spacebar preview (most-specific generator wins).
+6. ✅ Finder Sync extension — badges + "Add/Edit Tether Note" context menu (watches the real home directory from inside the sandbox, plus iCloud Drive Desktop/Documents mirrors).
 7. ⬜ Tags/categories + search — tags model/UI done; search window pending (registry at `known-files.json` ready for it).
 8. ✅ Templates + quick copy — built-in templates (Blank / AI Generation), UserDefaults store, Copy button.
 9. ⬜ Batch tagging.
-10. ✅ Menu bar quick-access panel — 10 most recent noted files, click to reveal.
+10. ✅ Menu bar quick-access panel — 10 most recent noted files; click opens the note, ⌥-click reveals in Finder.
 11. ⬜ Markdown export.
+
+**Also shipped after M1:** ⌥T global hotkey (Carbon) for the current Finder selection, "Open Tether Note" macOS Service (assignable to any shortcut), and centralized URL/window routing so `tether://` links and Dock drops work even with all windows closed.
