@@ -1,12 +1,15 @@
 import AppKit
 
-/// Central app delegate: global ⌥T hotkey, Services menu handler, and robust
-/// incoming-URL routing (Finder Sync `tether://` links, Dock-icon drops).
+/// Central app delegate: global hotkey (default ⌥T), Services menu handler,
+/// and robust incoming-URL routing (Finder Sync `tether://` links, Dock-icon drops).
 ///
 /// All "open the note editor" paths funnel through `WindowRouter`, so they
 /// work no matter which windows currently exist.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+
+    /// The currently bound global shortcut, for user-facing messages.
+    private var shortcutDisplay: String { GlobalShortcutStore.load().displayString }
 
     // MARK: - Lifecycle
 
@@ -80,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return []
     }
 
-    // MARK: - ⌥T → note editor for the current Finder selection
+    // MARK: - Hotkey → note editor for the current Finder selection
 
     private enum FinderSelectionError: LocalizedError {
         case automationDenied
@@ -90,21 +93,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             switch self {
             case .automationDenied:
                 return "Tether is not allowed to control Finder. Grant access in " +
-                    "System Settings → Privacy & Security → Automation, then press ⌥T again."
+                    "System Settings → Privacy & Security → Automation, then press " +
+                    "\(GlobalShortcutStore.load().displayString) again."
             case .scriptFailed(let message):
                 return message
             }
         }
     }
 
-    /// ⌥T handler: reads Finder's current selection via AppleScript and opens
+    /// Hotkey handler: reads Finder's current selection via AppleScript and opens
     /// the note editor for the first selected file.
     func openNoteForFinderSelection() {
         guard !NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").isEmpty else {
             WindowRouter.shared.openMainWindow()
             showAlert(
                 title: "Finder Isn't Running",
-                message: "Tether reads the selected file from Finder. Open Finder, select a file, and press ⌥T again."
+                message: "Tether reads the selected file from Finder. Open Finder, select a file, and press \(shortcutDisplay) again."
             )
             return
         }
@@ -118,7 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     WindowRouter.shared.openMainWindow()
                     self?.showAlert(
                         title: "No File Selected in Finder",
-                        message: "Select a file in a Finder window, then press ⌥T to open its Tether note."
+                        message: "Select a file in a Finder window, then press \(self?.shortcutDisplay ?? "the Tether shortcut") to open its Tether note."
                     )
                 }
             case .failure(let error):

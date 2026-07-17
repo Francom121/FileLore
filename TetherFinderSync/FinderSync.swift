@@ -61,8 +61,14 @@ final class FinderSync: FIFinderSync {
 
     // MARK: - Badges
 
+    /// Finder only asks for badges in icon view (⌘1) and list view (⌘2) —
+    /// macOS never renders Finder Sync badges in column view (⌘3) or gallery
+    /// view, so silence here while browsing in column view is expected.
     override func requestBadgeIdentifier(for url: URL) {
         let hasNote = NoteStore.hasNote(url: url)
+        NSLog("TetherFinderSync badge request for %@ — note found: %@",
+              url.lastPathComponent,
+              hasNote ? "yes" : "no")
         FIFinderSyncController.default().setBadgeIdentifier(
             hasNote ? FinderSync.badgeIdentifier : "",
             for: url

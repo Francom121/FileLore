@@ -83,6 +83,9 @@ Or open `Tether.xcodeproj` in Xcode 26 and build the **Tether** scheme (⌘B).
 - **⌥T (Option-T)** — select a file in Finder and press ⌥T to open its note editor.
   The first press triggers a one-time *"Tether wants to control Finder"* permission
   dialog; approve it once. If nothing is selected, Tether shows the drop-zone window.
+  The shortcut is customizable: menu bar icon → **Global Shortcut: ⌥T…** opens a
+  recorder window — click the field, press the new combo (must include at least one
+  of ⌘⌥⇧⌃), and it takes effect immediately. Default is ⌥T; **Reset to ⌥T** restores it.
 - **Finder right-click → Add/Edit Tether Note** — provided by the Finder Sync
   extension; also available as a Finder toolbar button.
 - **Finder right-click → Services / Quick Actions → Open Tether Note** — a macOS
@@ -98,11 +101,23 @@ Or open `Tether.xcodeproj` in Xcode 26 and build the **Tether** scheme (⌘B).
   preview/player. Tether's Quick Look extension only kicks in as a fallback for
   file types that have no system previewer.
 
+**Badges:** files with notes get a small badge on the file's icon in Finder —
+but only in **icon view (⌘1)** and **list view (⌘2)**. macOS does not render
+Finder Sync badges in **column view (⌘3)** or **gallery view (⌘4)** at all, so
+their absence there is expected, not a bug.
+
 ### Editing
 
-- Editor: multiline body, comma-separated tags, template menu (Blank / AI Generation),
-  drop files into **Linked Files** to attach them as bookmarks, Save / Delete Note / Copy.
-- Finder: files with notes get a `note.text` badge (requires the Finder Sync extension).
+- Editor: real file thumbnail in the header (Quick Look), multiline body,
+  **tag pills** — type a tag and press **Return**, **Tab**, or **,** to add it
+  (pasting `a, b, c` adds three); click a pill's **×** to remove it;
+  **double-click** a pill to edit it inline (**Return** commits, **Esc** cancels);
+  duplicates are refused case-insensitively — template menu (Blank / AI Generation),
+  drop files into **Linked Files** to attach them as bookmarks,
+  Save / Delete Note / Copy.
+- Finder: files with notes get a `note.text` badge on the file's icon
+  (requires the Finder Sync extension; icon view ⌘1 / list view ⌘2 only — never
+  column view ⌘3 or gallery view).
 
 ## Current limitations
 
@@ -136,4 +151,4 @@ Or open `Tether.xcodeproj` in Xcode 26 and build the **Tether** scheme (⌘B).
 10. ✅ Menu bar quick-access panel — 10 most recent noted files; click opens the note, ⌥-click reveals in Finder.
 11. ⬜ Markdown export.
 
-**Also shipped after M1:** ⌥T global hotkey (Carbon) for the current Finder selection, "Open Tether Note" macOS Service (assignable to any shortcut), and centralized URL/window routing so `tether://` links and Dock drops work even with all windows closed.
+**Also shipped after M1:** customizable global hotkey (Carbon, default ⌥T) for the current Finder selection — rebind via menu bar → Global Shortcut…, "Open Tether Note" macOS Service (assignable to any shortcut), and centralized URL/window routing so `tether://` links and Dock drops work even with all windows closed.

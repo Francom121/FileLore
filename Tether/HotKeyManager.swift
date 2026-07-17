@@ -1,12 +1,15 @@
 import Carbon
 import AppKit
 
-/// Global ⌥T hotkey via Carbon's `RegisterEventHotKey`.
+/// Global hotkey via Carbon's `RegisterEventHotKey` (default ⌥T, user-customizable).
 ///
 /// The old Carbon hotkey API still works on modern macOS and — unlike
 /// event monitors — requires no accessibility permission. The hotkey fires
 /// even while Tether is in the background, which is the whole point: press
-/// ⌥T in Finder to open the note editor for the selected file.
+/// the shortcut in Finder to open the note editor for the selected file.
+///
+/// The key combo is persisted in UserDefaults (`GlobalShortcutStore`); the
+/// settings window rebinds it via `updateShortcut(_:)`.
 final class HotKeyManager {
     static let shared = HotKeyManager()
 
@@ -18,13 +21,25 @@ final class HotKeyManager {
     private var eventHandlerRef: EventHandlerRef?
     private(set) var isRegistered = false
 
-    /// Invoked on the main thread when ⌥T is pressed.
+    /// Invoked on the main thread when the hotkey is pressed.
     var onHotKey: (@MainActor () -> Void)?
 
     private init() {}
 
+    /// The shortcut currently stored in settings (⌥T when nothing is stored).
+    var currentShortcut: GlobalShortcut { GlobalShortcutStore.load() }
+
+    /// Persists a new shortcut and re-registers the Carbon hotkey:
+    /// the old `EventHotKeyRef` (and event handler) is torn down first.
+    func updateShortcut(_ shortcut: GlobalShortcut) {
+        GlobalShortcutStore.save(shortcut)
+        unregister()
+        register()
+    }
+
     func register() {
         guard !isRegistered else { return }
+        let shortcut = GlobalShortcutStore.load()
 
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
@@ -64,8 +79,8 @@ final class HotKeyManager {
 
         let hotKeyID = EventHotKeyID(signature: HotKeyManager.signature, id: HotKeyManager.hotKeyID)
         let registerStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_T),
-            UInt32(optionKey),
+            shortcut.keyCode,
+            shortcut.carbonModifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,
@@ -73,9 +88,9 @@ final class HotKeyManager {
         )
         if registerStatus == noErr {
             isRegistered = true
-            NSLog("Tether: ⌥T global hotkey registered")
+            NSLog("Tether: \(shortcut.displayString) global hotkey registered")
         } else {
-            NSLog("Tether: RegisterEventHotKey failed (\(registerStatus)) — another app may already own ⌥T")
+            NSLog("Tether: RegisterEventHotKey failed (\(registerStatus)) — another app may already own \(shortcut.displayString)")
         }
     }
 

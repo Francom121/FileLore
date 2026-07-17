@@ -30,6 +30,9 @@ struct RecentFilesMenu: View {
                     .foregroundStyle(.secondary)
             }
             Divider()
+            Button("Global Shortcut: \(HotKeyManager.shared.currentShortcut.displayString)") {
+                WindowRouter.shared.openSettings()
+            }
             Button("Refresh") { reload() }
             Button("Quit Tether") { NSApp.terminate(nil) }
         }

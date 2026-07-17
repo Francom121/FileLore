@@ -19,6 +19,11 @@ struct TetherApp: App {
         }
         .defaultSize(width: 520, height: 640)
 
+        Window("Global Shortcut", id: "settings") {
+            SettingsView()
+        }
+        .windowResizability(.contentSize)
+
         MenuBarExtra("Tether", systemImage: "note.text") {
             RecentFilesMenu()
         }

@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import QuickLookThumbnailing
 import TetherCore
 
 /// One entry in the note's linked-file list, with live resolution state.
@@ -11,7 +10,6 @@ struct LinkItem: Identifiable {
     var pathHint: String
     var resolvedURL: URL?
     var isBroken: Bool
-    var thumbnail: NSImage?
 }
 
 @MainActor
@@ -19,7 +17,10 @@ final class NoteEditorModel: ObservableObject {
     let fileURL: URL
 
     @Published var body: String = ""
-    @Published var tagsText: String = ""
+    @Published var tags: [String] = []
+    /// In-progress text in the tag field (not yet a pill); merged into `tags`
+    /// on Save so a half-typed tag is never lost.
+    @Published var tagDraft: String = ""
     @Published var links: [LinkItem] = []
     @Published var created: Date?
     @Published var status: String?
@@ -38,7 +39,7 @@ final class NoteEditorModel: ObservableObject {
         }
         hasExistingNote = true
         body = note.body
-        tagsText = note.tags.joined(separator: ", ")
+        tags = note.tags
         created = note.created
         links = note.links.map { linked in
             let resolution = BookmarkResolver.resolve(linked.bookmark)
@@ -48,18 +49,9 @@ final class NoteEditorModel: ObservableObject {
                 displayName: linked.displayName,
                 pathHint: linked.relativePathHint,
                 resolvedURL: resolution.url,
-                isBroken: resolution.isBroken,
-                thumbnail: nil
+                isBroken: resolution.isBroken
             )
         }
-        Task { await refreshThumbnails() }
-    }
-
-    var parsedTags: [String] {
-        tagsText
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
     }
 
     var detectedWebLinks: [DetectedLink] {
@@ -68,9 +60,20 @@ final class NoteEditorModel: ObservableObject {
 
     func save() {
         do {
+            // Merge a half-typed tag the user never committed into the pills.
+            var finalTags = tags
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            for piece in TagPillEditor.pieces(from: tagDraft)
+            where !finalTags.contains(where: { $0.caseInsensitiveCompare(piece) == .orderedSame }) {
+                finalTags.append(piece)
+            }
+            tags = finalTags
+            tagDraft = ""
+
             var note = (try? NoteStore.read(url: fileURL)) ?? Note()
             note.body = body
-            note.tags = parsedTags
+            note.tags = finalTags
             note.links = links.map {
                 LinkedFile(id: $0.id, bookmark: $0.bookmark, displayName: $0.displayName, relativePathHint: $0.pathHint)
             }
@@ -90,7 +93,8 @@ final class NoteEditorModel: ObservableObject {
             KnownFilesRegistry.shared.remove(fileURL: fileURL)
             hasExistingNote = false
             body = ""
-            tagsText = ""
+            tags = []
+            tagDraft = ""
             links = []
             created = nil
             status = "Note deleted"
@@ -122,10 +126,8 @@ final class NoteEditorModel: ObservableObject {
                 displayName: linked.displayName,
                 pathHint: linked.relativePathHint,
                 resolvedURL: url,
-                isBroken: false,
-                thumbnail: nil
+                isBroken: false
             ))
-            Task { await refreshThumbnails() }
         } catch {
             status = "Could not link file: \(error.localizedDescription)"
         }
@@ -159,36 +161,9 @@ final class NoteEditorModel: ObservableObject {
             links[index].pathHint = fresh.relativePathHint
             links[index].resolvedURL = url
             links[index].isBroken = false
-            Task { await refreshThumbnails() }
         } catch {
             status = "Relink failed: \(error.localizedDescription)"
         }
-    }
-
-    private func refreshThumbnails() async {
-        for index in links.indices {
-            guard let url = links[index].resolvedURL else { links[index].thumbnail = nil; continue }
-            links[index].thumbnail = await ThumbnailProvider.thumbnail(for: url)
-        }
-    }
-}
-
-/// QuickLookThumbnailing with an NSWorkspace-icon fallback.
-enum ThumbnailProvider {
-    static func thumbnail(for url: URL) async -> NSImage {
-        let size = CGSize(width: 96, height: 96)
-        let request = QLThumbnailGenerator.Request(
-            fileAt: url,
-            size: size,
-            scale: NSScreen.main?.backingScaleFactor ?? 2,
-            representationTypes: .thumbnail
-        )
-        if let representation = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request) {
-            return representation.nsImage
-        }
-        let icon = NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false))
-        icon.size = size
-        return icon
     }
 }
 
@@ -236,9 +211,7 @@ struct NoteEditorView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: model.fileURL.path(percentEncoded: false)))
-                .resizable()
-                .frame(width: 48, height: 48)
+            FileThumbnailView(url: model.fileURL, pointSize: 64, cornerRadius: 10)
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.fileURL.lastPathComponent).font(.headline)
                 Text(model.fileURL.deletingLastPathComponent().path(percentEncoded: false))
@@ -272,8 +245,7 @@ struct NoteEditorView: View {
     private var tagsField: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Tags").font(.subheadline.weight(.semibold))
-            TextField("comma, separated, tags", text: $model.tagsText)
-                .textFieldStyle(.roundedBorder)
+            TagPillEditor(tags: $model.tags, draft: $model.tagDraft)
         }
     }
 
@@ -349,8 +321,8 @@ private struct LinkRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Group {
-                if let thumbnail = item.thumbnail {
-                    Image(nsImage: thumbnail).resizable()
+                if let url = item.resolvedURL {
+                    FileThumbnailView(url: url, pointSize: 36, cornerRadius: 6)
                 } else {
                     Image(systemName: item.isBroken ? "exclamationmark.triangle" : "doc")
                         .resizable().scaledToFit().padding(6)

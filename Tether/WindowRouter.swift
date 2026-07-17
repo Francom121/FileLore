@@ -54,6 +54,20 @@ final class WindowRouter {
         NSApp.activate()
     }
 
+    /// Opens (or focuses) the settings window and brings the app forward.
+    func openSettings() {
+        if let openWindowAction {
+            openWindowAction(id: "settings")
+        } else {
+            presentFallbackWindow(
+                title: "Global Shortcut",
+                size: NSSize(width: 440, height: 230),
+                rootView: SettingsView()
+            )
+        }
+        NSApp.activate()
+    }
+
     /// Last-resort window presentation when no SwiftUI `openWindow` action has
     /// been registered (e.g. a `tether://` URL arrives before any scene's view
     /// hierarchy exists).
