@@ -11,8 +11,10 @@ See `SPEC.md` for the full product spec.
 ```
 Tether.xcodeproj          Hand-authored (objectVersion 77, synchronized folders, no generators)
 ├── Tether/               SwiftUI macOS app — drop zone, note editor, menu bar recent list
+│   └── BadgeRegistryBridge.swift  publishes noted-file (dev, ino) registry into the Finder Sync container
 ├── TetherQuickLook/      Quick Look preview extension (com.apple.quicklook.preview)
 ├── TetherFinderSync/     Finder Sync extension (com.apple.FinderSync) — badges + context menu
+│   └── BadgeRegistryReader.swift  inode-based badge lookup against the mirrored registry
 └── TetherCore/           Local Swift package linked by all three targets
     ├── Note.swift          Note / LinkedFile models + versioned JSON envelope (version: 1)
     ├── NoteStore.swift     getxattr/setxattr/removexattr read/write/delete of com.tether.note
@@ -42,6 +44,29 @@ Tether.xcodeproj          Hand-authored (objectVersion 77, synchronized folders,
 - `~/Library/Application Support/Tether/known-files.json` records noted files
   (path, name, tags, body preview, timestamp) on every save/delete. The menu-bar
   recent list uses it now; the search feature (later milestone) will build on it.
+
+### Badge registry bridge
+
+- The Finder Sync extension is sandboxed and **cannot read the `com.tether.note`
+  xattr**, so it can't decide on its own which files to badge. The (unsandboxed)
+  main app bridges that gap: after every note save/delete and once at app launch,
+  `BadgeRegistryBridge` rebuilds `badge-registry.json` — one entry per noted file
+  with `path` (hint), `dev` (st_dev), `ino` (st_ino), `updatedAt` — derived from
+  `known-files.json` re-validated with live `NoteStore.hasNote` checks (entries
+  whose file vanished or lost its note are dropped).
+- The registry is written atomically (temp file + `rename`) to the canonical
+  `~/Library/Application Support/Tether/badge-registry.json` **and** mirrored
+  into the extension container at
+  `~/Library/Containers/com.tether.app.FinderSync/Data/badge-registry.json`
+  (skipped silently, and retried next launch, if the container doesn't exist
+  yet). Each successful bridge write posts the Darwin notification
+  `com.tether.app.badgesChanged` so the extension reloads immediately.
+- The extension (`BadgeRegistryReader`) stats each badge-requested URL and
+  matches its (dev, ino) against the mirrored registry, reloading when the
+  file's mtime changes or the Darwin notification fires. Because matching is by
+  inode, badges survive renames and moves on the same volume — same guarantee
+  as the xattr itself. A direct `NoteStore.hasNote` read remains only as a
+  last-resort fallback when the registry has no match.
 
 ### Sandboxing
 
@@ -104,7 +129,10 @@ Or open `Tether.xcodeproj` in Xcode 26 and build the **Tether** scheme (⌘B).
 **Badges:** files with notes get a small badge on the file's icon in Finder —
 but only in **icon view (⌘1)** and **list view (⌘2)**. macOS does not render
 Finder Sync badges in **column view (⌘3)** or **gallery view (⌘4)** at all, so
-their absence there is expected, not a bug.
+their absence there is expected, not a bug. The badge decision comes from the
+badge registry bridge (see Architecture): the main app publishes noted files
+by inode into the extension's container, so badges appear without the
+sandboxed extension reading any xattrs.
 
 ### Editing
 
@@ -128,10 +156,12 @@ their absence there is expected, not a bug.
   "view note" gesture for media files is ⌥T or the right-click menu instead.
 - Templates are built-in only; the UserDefaults-backed store for custom templates exists
   but the editing UI is future work.
-- Finder Sync badge refresh is event-driven by Finder; after editing a note outside
-  Finder's view, the badge may appear only when the folder is next observed. After
-  updating the app, Finder may need to re-observe a folder (open it / right-click
-  inside it) before badges and the context menu show up there.
+- Finder Sync badge refresh is event-driven by Finder; the app nudges the
+  extension via a Darwin notification (`com.tether.app.badgesChanged`) whenever
+  the badge registry changes, but the badge itself appears only when Finder
+  next asks the extension for the file's badge. After updating the app, Finder
+  may need to re-observe a folder (open it / right-click inside it) before
+  badges and the context menu show up there.
 - Notes do not follow files copied to other volumes/cloud drives (xattr limitation,
   by design of the storage model).
 - Linked files: single click opens in the default app; inline Quick Look preview of

@@ -19,6 +19,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         HotKeyManager.shared.register()
         NSApp.servicesProvider = self
+        // Publish the badge registry to the Finder Sync extension (also the
+        // retry point for when its container didn't exist on earlier runs).
+        BadgeRegistryBridge.refresh()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

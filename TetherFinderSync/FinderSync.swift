@@ -4,6 +4,11 @@ import TetherCore
 
 /// Finder Sync extension: badges files that carry a Tether note and adds an
 /// "Add/Edit Tether Note" context menu item that opens the note in the main app.
+///
+/// Badge decisions come from `badge-registry.json` (mirrored into this
+/// sandbox's container by the main app and matched by inode via
+/// `BadgeRegistryReader`) because sandboxed xattr reads fail; a direct
+/// `NoteStore.hasNote` read remains as a last-resort fallback.
 final class FinderSync: FIFinderSync {
 
     private static let badgeIdentifier = "TetherNote"
@@ -63,28 +68,29 @@ final class FinderSync: FIFinderSync {
         DebugLog.log("init: monitoring = [\(monitored.map { $0.path(percentEncoded: false) }.joined(separator: ", "))]")
         DebugLog.log("init: isExtensionEnabled = \(FIFinderSyncController.isExtensionEnabled)")
         DebugLog.log("init: badge image valid = \(image.isValid), size = \(NSStringFromSize(image.size))")
+        DebugLog.log("init: \(BadgeRegistryReader.shared.statusDescription)")
 
-        FinderSync.runForcedBadgeProbe()
+        FinderSync.subscribeToBadgeChanges()
     }
 
-    // MARK: - TEMPORARY forced-badge diagnostic (remove once the badge pipeline is understood)
+    // MARK: - Badge change notification
 
-    /// Probes a hardcoded known-noted file and sets the badge on it directly,
-    /// without waiting for Finder to call `requestBadgeIdentifier(for:)`.
-    /// Distinguishes "Finder never asks for a badge" from "badge is set but
-    /// doesn't render".
-    private static func runForcedBadgeProbe() {
-        let url = URL(fileURLWithPath: "/Users/fm/Documents/TagPanda/Social Media/tagpanda promo1.mp4")
-        guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
-            DebugLog.log("init: forced-badge probe — file missing: \(url.path(percentEncoded: false))")
-            return
-        }
-        let hasNote = NoteStore.hasNote(url: url)
-        DebugLog.log("init: forced-badge probe — \(url.lastPathComponent) exists, hasNote = \(hasNote)")
-        if hasNote {
-            FIFinderSyncController.default().setBadgeIdentifier(FinderSync.badgeIdentifier, for: url)
-            DebugLog.log("init: forced badge set for \(url.lastPathComponent)")
-        }
+    /// The main app posts this Darwin notification after each registry bridge
+    /// write; reload the registry so the next badge request sees fresh data.
+    private static func subscribeToBadgeChanges() {
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            nil,
+            { _, _, _, _, _ in
+                DispatchQueue.main.async {
+                    DebugLog.log("darwin notification: com.tether.app.badgesChanged — reloading registry")
+                    BadgeRegistryReader.shared.reload(reason: "Darwin notification")
+                }
+            },
+            "com.tether.app.badgesChanged" as CFString,
+            nil,
+            .deliverImmediately
+        )
     }
 
     // MARK: - Badges
@@ -92,25 +98,41 @@ final class FinderSync: FIFinderSync {
     /// Finder only asks for badges in icon view (⌘1) and list view (⌘2) —
     /// macOS never renders Finder Sync badges in column view (⌘3) or gallery
     /// view, so silence here while browsing in column view is expected.
+    ///
+    /// Lookup order: (dev, ino) in the badge registry → sandboxed xattr read
+    /// as a last-resort fallback (it fails for most paths but may work for
+    /// Finder-handed URLs) → clear badge.
     override func requestBadgeIdentifier(for url: URL) {
-        // Read directly (rather than via `hasNote`) so the log can tell
-        // "no note on this file" apart from "note read failed".
-        let hasNote: Bool
-        do {
-            if try NoteStore.read(url: url) != nil {
+        let path = url.path(percentEncoded: false)
+        DebugLog.log("badge request: \(url.lastPathComponent) — \(BadgeRegistryReader.shared.statusDescription)")
+
+        var hasNote = false
+        var decision = "no note"
+
+        let attributes = try? FileManager.default.attributesOfItem(atPath: path)
+        let dev = (attributes?[.systemNumber] as? NSNumber)?.uint64Value
+        let ino = (attributes?[.systemFileNumber] as? NSNumber)?.uint64Value
+        if let dev, let ino {
+            if BadgeRegistryReader.shared.contains(dev: dev, ino: ino) {
                 hasNote = true
-                DebugLog.log("badge request: \(url.lastPathComponent) — note found")
+                decision = "registry match (dev=\(dev) ino=\(ino))"
+                DebugLog.log("badge request: \(url.lastPathComponent) — \(decision)")
             } else {
-                hasNote = false
-                DebugLog.log("badge request: \(url.lastPathComponent) — read returned nil (no note)")
+                DebugLog.log("badge request: \(url.lastPathComponent) — stat dev=\(dev) ino=\(ino), no registry match; trying xattr fallback")
+                hasNote = NoteStore.hasNote(url: url)
+                decision = hasNote ? "xattr fallback hit" : "xattr fallback miss — clearing badge"
+                DebugLog.log("badge request: \(url.lastPathComponent) — \(decision)")
             }
-        } catch {
-            hasNote = false
-            DebugLog.log("badge request: \(url.lastPathComponent) — read threw: \(error.localizedDescription)")
+        } else {
+            DebugLog.log("badge request: \(url.lastPathComponent) — stat failed for \(path); trying xattr fallback")
+            hasNote = NoteStore.hasNote(url: url)
+            decision = hasNote ? "xattr fallback hit" : "xattr fallback miss — clearing badge"
+            DebugLog.log("badge request: \(url.lastPathComponent) — \(decision)")
         }
-        NSLog("TetherFinderSync badge request for %@ — note found: %@",
+
+        NSLog("TetherFinderSync badge request for %@ — %@",
               url.lastPathComponent,
-              hasNote ? "yes" : "no")
+              decision)
         FIFinderSyncController.default().setBadgeIdentifier(
             hasNote ? FinderSync.badgeIdentifier : "",
             for: url

@@ -81,6 +81,7 @@ final class NoteEditorModel: ObservableObject {
             hasExistingNote = true
             created = note.created
             KnownFilesRegistry.shared.upsert(fileURL: fileURL, note: note)
+            BadgeRegistryBridge.refresh()
             status = "Saved ✓"
         } catch {
             status = "Save failed: \(error.localizedDescription)"
@@ -91,6 +92,7 @@ final class NoteEditorModel: ObservableObject {
         do {
             try NoteStore.delete(url: fileURL)
             KnownFilesRegistry.shared.remove(fileURL: fileURL)
+            BadgeRegistryBridge.refresh()
             hasExistingNote = false
             body = ""
             tags = []
