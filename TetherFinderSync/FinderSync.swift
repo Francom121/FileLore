@@ -48,7 +48,8 @@ final class FinderSync: FIFinderSync {
         super.init()
         NSLog("TetherFinderSync launched from %@", Bundle.main.bundlePath as NSString)
 
-        FIFinderSyncController.default().directoryURLs = Set(FinderSync.monitoredDirectoryURLs())
+        let monitored = FinderSync.monitoredDirectoryURLs()
+        FIFinderSyncController.default().directoryURLs = Set(monitored)
 
         let image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "Tether Note")
             ?? NSImage(named: NSImage.actionTemplateName)!
@@ -57,6 +58,33 @@ final class FinderSync: FIFinderSync {
             label: "Tether Note",
             forBadgeIdentifier: FinderSync.badgeIdentifier
         )
+
+        DebugLog.log("init: log file = \(DebugLog.fileURL.path(percentEncoded: false))")
+        DebugLog.log("init: monitoring = [\(monitored.map { $0.path(percentEncoded: false) }.joined(separator: ", "))]")
+        DebugLog.log("init: isExtensionEnabled = \(FIFinderSyncController.isExtensionEnabled)")
+        DebugLog.log("init: badge image valid = \(image.isValid), size = \(NSStringFromSize(image.size))")
+
+        FinderSync.runForcedBadgeProbe()
+    }
+
+    // MARK: - TEMPORARY forced-badge diagnostic (remove once the badge pipeline is understood)
+
+    /// Probes a hardcoded known-noted file and sets the badge on it directly,
+    /// without waiting for Finder to call `requestBadgeIdentifier(for:)`.
+    /// Distinguishes "Finder never asks for a badge" from "badge is set but
+    /// doesn't render".
+    private static func runForcedBadgeProbe() {
+        let url = URL(fileURLWithPath: "/Users/fm/Documents/TagPanda/Social Media/tagpanda promo1.mp4")
+        guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
+            DebugLog.log("init: forced-badge probe — file missing: \(url.path(percentEncoded: false))")
+            return
+        }
+        let hasNote = NoteStore.hasNote(url: url)
+        DebugLog.log("init: forced-badge probe — \(url.lastPathComponent) exists, hasNote = \(hasNote)")
+        if hasNote {
+            FIFinderSyncController.default().setBadgeIdentifier(FinderSync.badgeIdentifier, for: url)
+            DebugLog.log("init: forced badge set for \(url.lastPathComponent)")
+        }
     }
 
     // MARK: - Badges
@@ -65,7 +93,21 @@ final class FinderSync: FIFinderSync {
     /// macOS never renders Finder Sync badges in column view (⌘3) or gallery
     /// view, so silence here while browsing in column view is expected.
     override func requestBadgeIdentifier(for url: URL) {
-        let hasNote = NoteStore.hasNote(url: url)
+        // Read directly (rather than via `hasNote`) so the log can tell
+        // "no note on this file" apart from "note read failed".
+        let hasNote: Bool
+        do {
+            if try NoteStore.read(url: url) != nil {
+                hasNote = true
+                DebugLog.log("badge request: \(url.lastPathComponent) — note found")
+            } else {
+                hasNote = false
+                DebugLog.log("badge request: \(url.lastPathComponent) — read returned nil (no note)")
+            }
+        } catch {
+            hasNote = false
+            DebugLog.log("badge request: \(url.lastPathComponent) — read threw: \(error.localizedDescription)")
+        }
         NSLog("TetherFinderSync badge request for %@ — note found: %@",
               url.lastPathComponent,
               hasNote ? "yes" : "no")
@@ -88,6 +130,7 @@ final class FinderSync: FIFinderSync {
     // MARK: - Context menu
 
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
+        DebugLog.log("menu requested: kind = \(menuKind.rawValue) (\(FinderSync.describe(menuKind)))")
         let menu = NSMenu(title: "")
         let item = NSMenuItem(
             title: "Add/Edit Tether Note",
@@ -97,6 +140,17 @@ final class FinderSync: FIFinderSync {
         item.target = self
         menu.addItem(item)
         return menu
+    }
+
+    /// Human-readable `FIMenuKind` for the debug log.
+    private static func describe(_ kind: FIMenuKind) -> String {
+        switch kind {
+        case .contextualMenuForItems: return "contextualMenuForItems"
+        case .contextualMenuForContainer: return "contextualMenuForContainer"
+        case .contextualMenuForSidebar: return "contextualMenuForSidebar"
+        case .toolbarItemMenu: return "toolbarItemMenu"
+        @unknown default: return "unknown"
+        }
     }
 
     @IBAction func openTetherNote(_ sender: AnyObject?) {
