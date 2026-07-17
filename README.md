@@ -19,7 +19,10 @@ Tether.xcodeproj          Hand-authored (objectVersion 77, synchronized folders,
     ├── Note.swift          Note / LinkedFile models + versioned JSON envelope (version: 1)
     ├── NoteStore.swift     getxattr/setxattr/removexattr read/write/delete of com.tether.note
     ├── BookmarkResolver.swift  Security-scoped bookmark create/resolve + stale/broken status
-    └── LinkDetector.swift  http/https URL detection via NSDataDetector
+    ├── LinkDetector.swift  http/https URL detection via NSDataDetector
+    ├── SearchEngine.swift  Spotlight-style ranked search (name > tags > body, snippets)
+    ├── BatchNoteService.swift  batch tag/body apply with append/replace/onlyIfEmpty modes
+    └── MarkdownExporter.swift  note → Markdown document rendering
 ```
 
 ### Where notes live
@@ -43,7 +46,7 @@ Tether.xcodeproj          Hand-authored (objectVersion 77, synchronized folders,
 
 - `~/Library/Application Support/Tether/known-files.json` records noted files
   (path, name, tags, body preview, timestamp) on every save/delete. The menu-bar
-  recent list uses it now; the search feature (later milestone) will build on it.
+  recent list and the search window both build on it.
 
 ### Badge registry bridge
 
@@ -111,6 +114,10 @@ Or open `Tether.xcodeproj` in Xcode 26 and build the **Tether** scheme (⌘B).
   The shortcut is customizable: menu bar icon → **Global Shortcut: ⌥T…** opens a
   recorder window — click the field, press the new combo (must include at least one
   of ⌘⌥⇧⌃), and it takes effect immediately. Default is ⌥T; **Reset to ⌥T** restores it.
+- **⇧⌘F (Shift-Command-F)** — opens the Spotlight-style **search window** from
+  anywhere (works in the background like ⌥T, customizable via the same settings
+  window, second recorder row — **Reset to ⇧⌘F** restores it). Also reachable via
+  the menu bar icon → **Search Notes…** and **⌘F** while the app is active.
 - **Finder right-click → Add/Edit Tether Note** — provided by the Finder Sync
   extension; also available as a Finder toolbar button.
 - **Finder right-click → Services / Quick Actions → Open Tether Note** — a macOS
@@ -119,8 +126,42 @@ Or open `Tether.xcodeproj` in Xcode 26 and build the **Tether** scheme (⌘B).
 - **Menu bar** — the Tether icon lists the 10 most recently noted files.
   **Click** opens the note editor; **⌥-click** reveals the file in Finder.
 - **Drop zone / Dock icon** — drop a file onto the Tether window or Dock icon.
+  Dropping **several files at once** opens the batch editor instead of many
+  single editors (see *Batch tagging* below).
 - **`tether://open?path=...`** — opens the editor for a file (used internally by
-  the Finder Sync context menu).
+  the Finder Sync context menu). `tether://batch?ref=...` opens the batch
+  editor for a multi-selection (the Finder Sync extension hands the file list
+  over through a JSON file in its container's tmp directory).
+
+### Search
+
+- Spotlight-style floating panel over every noted file: live results as you
+  type, ranked name matches > tag matches > body matches (most recently
+  modified first within a tier), with body hits showing a short excerpt.
+  Matching is case- and diacritic-insensitive ("cafe" finds "café").
+- **↩ / click** opens the note editor; **⌘↩ / right-click** reveals the file
+  in Finder. A strip of tag chips above the results AND-filters them.
+- Files whose note xattr vanished since they were registered are flagged
+  "note missing"; files that no longer exist are skipped.
+
+### Batch tagging / batch notes
+
+- Select several files and apply the same tags (and optionally the same note
+  body) to all of them in one action. Body modes: **Add to existing** /
+  **Replace** / **Only if empty**; tags merge case-insensitively without
+  clobbering existing ones. Per-file results (✓/✕) are shown inline, and
+  badges appear for newly-noted files.
+- Entry points: drop multiple files on the drop zone or Dock icon, or select
+  several files in Finder → right-click → **Batch Tag with Tether…**
+  (single selection keeps the classic "Add/Edit Tether Note").
+
+### Markdown export
+
+- In the note editor, **Export…** (next to Copy) → **Save as Markdown…**
+  (default name `<filename>.md`) or **Copy Markdown to Clipboard**. The
+  document is `# <filename>`, the body verbatim, `**Tags:** #a #b`, a
+  `**Linked files:**` list (resolved paths, or "(broken link)"), and
+  `*Noted <date>*`.
 - **Spacebar (Quick Look)** — for media files (video, images, audio, PDFs…) the
   system's default previewer always wins, so spacebar keeps showing the normal
   preview/player. Tether's Quick Look extension only kicks in as a fallback for
@@ -169,16 +210,16 @@ sandboxed extension reading any xattrs.
 
 ## Build-order checklist (from SPEC.md)
 
-1. ✅ Core read/write/edit engine for notes (extended attributes) — `TetherCore.NoteStore`, 24 unit tests green.
+1. ✅ Core read/write/edit engine for notes (extended attributes) — `TetherCore.NoteStore`, 47 unit tests green.
 2. ✅ Drag-and-drop app for creating/editing notes (text) — drop zone, Dock-icon open, per-file editor windows.
 3. ✅ Security-scoped bookmark logic for linked files + broken link/relink handling.
 4. ✅ Web link auto-detection in note text — clickable in editor preview, Quick Look, and copy flows.
 5. ✅ Quick Look extension — renders the note for file types no system previewer claims; media files keep the default spacebar preview (most-specific generator wins).
 6. ✅ Finder Sync extension — badges + "Add/Edit Tether Note" context menu (watches the real home directory from inside the sandbox, plus iCloud Drive Desktop/Documents mirrors).
-7. ⬜ Tags/categories + search — tags model/UI done; search window pending (registry at `known-files.json` ready for it).
+7. ✅ Tags/categories + search — tag pills in the editor; Spotlight-style search window (⇧⌘F global hotkey, ⌘F in-app, menu bar item) with ranked results, snippets, and tag-chip filters.
 8. ✅ Templates + quick copy — built-in templates (Blank / AI Generation), UserDefaults store, Copy button.
-9. ⬜ Batch tagging.
+9. ✅ Batch tagging — multi-file drops (drop zone / Dock) and Finder "Batch Tag with Tether…" open one batch editor; tags merge case-insensitively; body modes add/replace/only-if-empty.
 10. ✅ Menu bar quick-access panel — 10 most recent noted files; click opens the note, ⌥-click reveals in Finder.
-11. ⬜ Markdown export.
+11. ✅ Markdown export — editor "Export…" menu saves/copies a `# filename` Markdown doc with body, tags, linked files (broken links marked), and noted date.
 
-**Also shipped after M1:** customizable global hotkey (Carbon, default ⌥T) for the current Finder selection — rebind via menu bar → Global Shortcut…, "Open Tether Note" macOS Service (assignable to any shortcut), and centralized URL/window routing so `tether://` links and Dock drops work even with all windows closed.
+**Also shipped after M1:** customizable global hotkeys (Carbon, defaults ⌥T open-note / ⇧⌘F search) — rebind via menu bar → Global Shortcut…, "Open Tether Note" macOS Service (assignable to any shortcut), and centralized URL/window routing so `tether://` links and Dock drops work even with all windows closed.

@@ -2,37 +2,35 @@ import SwiftUI
 import AppKit
 import Carbon
 
-/// Settings window: rebind the global "open note for the Finder selection" hotkey.
+/// Settings window: rebind the global hotkeys — "open note for the Finder
+/// selection" (default ⌥T) and "search notes" (default ⇧⌘F).
 struct SettingsView: View {
-    @State private var shortcut: GlobalShortcut = GlobalShortcutStore.load()
+    @State private var shortcut: GlobalShortcut = GlobalShortcutStore.load(.openNote)
+    @State private var searchShortcut: GlobalShortcut = GlobalShortcutStore.load(.search)
     @State private var errorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Global Shortcut")
+            Text("Global Shortcuts")
                 .font(.headline)
-            Text("Opens the note editor for the current Finder selection.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
 
-            HStack(spacing: 10) {
-                ShortcutRecorder(
-                    current: shortcut,
-                    onCapture: { captured in
-                        errorMessage = nil
-                        shortcut = captured
-                        HotKeyManager.shared.updateShortcut(captured)
-                    },
-                    onError: { message in
-                        errorMessage = message
-                    }
-                )
-                Button("Reset to ⌥T") {
-                    errorMessage = nil
-                    shortcut = GlobalShortcutStore.fallback
-                    HotKeyManager.shared.updateShortcut(GlobalShortcutStore.fallback)
-                }
-            }
+            shortcutRow(
+                title: "Open Note for Finder Selection",
+                description: "Opens the note editor for the current Finder selection.",
+                shortcut: $shortcut,
+                fallback: GlobalShortcutStore.fallback(for: .openNote),
+                slot: .openNote
+            )
+
+            Divider()
+
+            shortcutRow(
+                title: "Search Notes",
+                description: "Opens the Spotlight-style search over all noted files.",
+                shortcut: $searchShortcut,
+                fallback: GlobalShortcutStore.fallback(for: .search),
+                slot: .search
+            )
 
             if let errorMessage {
                 Text(errorMessage)
@@ -50,6 +48,39 @@ struct SettingsView: View {
         }
         .padding(20)
         .frame(width: 400)
+    }
+
+    private func shortcutRow(
+        title: String,
+        description: String,
+        shortcut: Binding<GlobalShortcut>,
+        fallback: GlobalShortcut,
+        slot: HotKeySlot
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.subheadline.weight(.semibold))
+            Text(description)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                ShortcutRecorder(
+                    current: shortcut.wrappedValue,
+                    onCapture: { captured in
+                        errorMessage = nil
+                        shortcut.wrappedValue = captured
+                        HotKeyManager.shared.updateShortcut(captured, slot: slot)
+                    },
+                    onError: { message in
+                        errorMessage = message
+                    }
+                )
+                Button("Reset to \(fallback.displayString)") {
+                    errorMessage = nil
+                    shortcut.wrappedValue = fallback
+                    HotKeyManager.shared.updateShortcut(fallback, slot: slot)
+                }
+            }
+        }
     }
 }
 

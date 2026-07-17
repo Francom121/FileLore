@@ -130,26 +130,57 @@ struct GlobalShortcut: Equatable, Sendable {
     }
 }
 
-/// UserDefaults persistence for the user's global shortcut. Defaults to ⌥T.
+/// Which global hotkey a stored shortcut belongs to.
+enum HotKeySlot: String, CaseIterable {
+    /// Opens the note editor for the current Finder selection (default ⌥T).
+    case openNote
+    /// Opens/focuses the Spotlight-style search window (default ⇧⌘F).
+    case search
+}
+
+/// UserDefaults persistence for the user's global shortcuts. Defaults are
+/// ⌥T (open note) and ⇧⌘F (search).
 enum GlobalShortcutStore {
-    static let fallback = GlobalShortcut(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: UInt32(optionKey))
-
-    private static let keyCodeDefaultsKey = "globalShortcut.keyCode"
-    private static let modifiersDefaultsKey = "globalShortcut.carbonModifiers"
-
-    static func load() -> GlobalShortcut {
-        let defaults = UserDefaults.standard
-        guard defaults.object(forKey: keyCodeDefaultsKey) != nil else { return fallback }
-        let shortcut = GlobalShortcut(
-            keyCode: UInt32(clamping: defaults.integer(forKey: keyCodeDefaultsKey)),
-            carbonModifiers: UInt32(clamping: defaults.integer(forKey: modifiersDefaultsKey))
-        )
-        return shortcut.isValid ? shortcut : fallback
+    static func fallback(for slot: HotKeySlot) -> GlobalShortcut {
+        switch slot {
+        case .openNote:
+            return GlobalShortcut(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: UInt32(optionKey))
+        case .search:
+            return GlobalShortcut(keyCode: UInt32(kVK_ANSI_F), carbonModifiers: UInt32(shiftKey | cmdKey))
+        }
     }
 
-    static func save(_ shortcut: GlobalShortcut) {
+    /// ⌥T — kept as a convenience for the original call sites.
+    static var fallback: GlobalShortcut { fallback(for: .openNote) }
+
+    private static func keyCodeDefaultsKey(for slot: HotKeySlot) -> String {
+        switch slot {
+        case .openNote: return "globalShortcut.keyCode" // original keys, untouched
+        case .search: return "searchShortcut.keyCode"
+        }
+    }
+
+    private static func modifiersDefaultsKey(for slot: HotKeySlot) -> String {
+        switch slot {
+        case .openNote: return "globalShortcut.carbonModifiers"
+        case .search: return "searchShortcut.carbonModifiers"
+        }
+    }
+
+    static func load(_ slot: HotKeySlot = .openNote) -> GlobalShortcut {
         let defaults = UserDefaults.standard
-        defaults.set(Int(shortcut.keyCode), forKey: keyCodeDefaultsKey)
-        defaults.set(Int(shortcut.carbonModifiers), forKey: modifiersDefaultsKey)
+        let keyCodeKey = keyCodeDefaultsKey(for: slot)
+        guard defaults.object(forKey: keyCodeKey) != nil else { return fallback(for: slot) }
+        let shortcut = GlobalShortcut(
+            keyCode: UInt32(clamping: defaults.integer(forKey: keyCodeKey)),
+            carbonModifiers: UInt32(clamping: defaults.integer(forKey: modifiersDefaultsKey(for: slot)))
+        )
+        return shortcut.isValid ? shortcut : fallback(for: slot)
+    }
+
+    static func save(_ shortcut: GlobalShortcut, slot: HotKeySlot = .openNote) {
+        let defaults = UserDefaults.standard
+        defaults.set(Int(shortcut.keyCode), forKey: keyCodeDefaultsKey(for: slot))
+        defaults.set(Int(shortcut.carbonModifiers), forKey: modifiersDefaultsKey(for: slot))
     }
 }

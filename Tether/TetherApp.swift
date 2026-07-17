@@ -9,6 +9,13 @@ struct TetherApp: App {
             DropZoneView()
         }
         .defaultSize(width: 440, height: 340)
+        .commands {
+            // ⌘F opens the search window whenever the app is active.
+            CommandGroup(after: .newItem) {
+                Button("Search Notes…") { WindowRouter.shared.openSearch() }
+                    .keyboardShortcut("f", modifiers: .command)
+            }
+        }
 
         WindowGroup("Tether Note", id: "note-editor", for: URL.self) { $fileURL in
             if let fileURL {
@@ -19,7 +26,22 @@ struct TetherApp: App {
         }
         .defaultSize(width: 520, height: 640)
 
-        Window("Global Shortcut", id: "settings") {
+        Window("Search Notes", id: "search") {
+            SearchView()
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 620, height: 520)
+
+        WindowGroup("Batch Edit", id: "batch-edit", for: [URL].self) { $fileURLs in
+            if let fileURLs {
+                BatchEditView(fileURLs: fileURLs)
+            } else {
+                Text("No files")
+            }
+        }
+        .defaultSize(width: 560, height: 620)
+
+        Window("Global Shortcuts", id: "settings") {
             SettingsView()
         }
         .windowResizability(.contentSize)

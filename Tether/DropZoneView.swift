@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Main window: a prominent drop zone. Dropping a file (or opening one via the
 /// Dock icon / `tether://` URL) opens a note editor window for that file.
@@ -27,16 +28,29 @@ struct DropZoneView: View {
                 .padding(16)
         }
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
-            for provider in providers {
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    guard let url else { return }
-                    Task { @MainActor in openWindow(id: "note-editor", value: url) }
+            // Collect every dropped URL first, then route: several files at
+            // once open the batch editor instead of N single editors.
+            Task { @MainActor in
+                var urls: [URL] = []
+                for provider in providers {
+                    if let item = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier),
+                       let url = item as? URL {
+                        urls.append(url)
+                    }
+                }
+                guard !urls.isEmpty else { return }
+                if urls.count > 1 {
+                    WindowRouter.shared.openBatchEditor(for: urls)
+                } else {
+                    openWindow(id: "note-editor", value: urls[0])
                 }
             }
             return true
         }
         .onOpenURL { url in
-            if url.scheme == "tether", let fileURL = TetherURLRouter.fileURL(from: url) {
+            if url.scheme == "tether", let fileURLs = BatchRequestLoader.fileURLs(from: url) {
+                WindowRouter.shared.openBatchEditor(for: fileURLs)
+            } else if url.scheme == "tether", let fileURL = TetherURLRouter.fileURL(from: url) {
                 openWindow(id: "note-editor", value: fileURL)
             } else if url.isFileURL {
                 openWindow(id: "note-editor", value: url)

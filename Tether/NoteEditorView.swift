@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import TetherCore
 
 /// One entry in the note's linked-file list, with live resolution state.
@@ -111,6 +112,47 @@ final class NoteEditorModel: ObservableObject {
         status = "Copied to clipboard"
     }
 
+    // MARK: - Markdown export
+
+    /// The note as it would be saved right now (unsaved edits included).
+    private func currentNote() -> Note {
+        Note(
+            body: body,
+            tags: tags,
+            links: links.map {
+                LinkedFile(id: $0.id, bookmark: $0.bookmark, displayName: $0.displayName, relativePathHint: $0.pathHint)
+            },
+            created: created ?? Date(),
+            modified: Date()
+        )
+    }
+
+    func markdownForExport() -> String {
+        MarkdownExporter.markdown(for: currentNote(), fileName: fileURL.lastPathComponent)
+    }
+
+    func copyMarkdownToPasteboard() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(markdownForExport(), forType: .string)
+        status = "Markdown copied to clipboard"
+    }
+
+    /// NSSavePanel pre-filled with `<filename>.md`; writes the exported Markdown.
+    func saveMarkdownAsFile() {
+        let panel = NSSavePanel()
+        panel.title = "Export Note as Markdown"
+        let baseName = fileURL.deletingPathExtension().lastPathComponent
+        panel.nameFieldStringValue = "\(baseName).md"
+        panel.allowedContentTypes = [.init(filenameExtension: "md")].compactMap { $0 }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try markdownForExport().write(to: url, atomically: true, encoding: .utf8)
+            status = "Exported to \(url.lastPathComponent) ✓"
+        } catch {
+            status = "Export failed: \(error.localizedDescription)"
+        }
+    }
+
     func applyTemplate(_ template: NoteTemplate) {
         guard !template.body.isEmpty else { body = ""; return }
         body = body.isEmpty ? template.body : body + "\n\n" + template.body
@@ -201,6 +243,11 @@ struct NoteEditorView: View {
                 }
                 Button("Copy") { model.copyBodyToPasteboard() }
                     .help("Copy note body to the clipboard")
+                Menu("Export…") {
+                    Button("Save as Markdown…") { model.saveMarkdownAsFile() }
+                    Button("Copy Markdown to Clipboard") { model.copyMarkdownToPasteboard() }
+                }
+                .help("Export the note (text, tags, links) as Markdown")
                 if model.hasExistingNote {
                     Button("Delete Note", role: .destructive) { model.deleteNote() }
                 }

@@ -30,6 +30,9 @@ struct RecentFilesMenu: View {
                     .foregroundStyle(.secondary)
             }
             Divider()
+            Button("Search Notes…") {
+                WindowRouter.shared.openSearch()
+            }
             Button("Global Shortcut: \(HotKeyManager.shared.currentShortcut.displayString)") {
                 WindowRouter.shared.openSettings()
             }

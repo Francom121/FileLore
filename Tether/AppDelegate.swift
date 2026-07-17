@@ -17,6 +17,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKeyManager.shared.onHotKey = { [weak self] in
             self?.openNoteForFinderSelection()
         }
+        HotKeyManager.shared.onSearchHotKey = {
+            WindowRouter.shared.openSearch()
+        }
         HotKeyManager.shared.register()
         NSApp.servicesProvider = self
         // Publish the badge registry to the Finder Sync extension (also the
@@ -38,15 +41,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Incoming URLs (Bug 4: robust when the main window is closed)
 
-    /// Receives `tether://open?path=...` links (Finder Sync context menu) and
-    /// file URLs (Dock-icon drops, `open -a Tether file`). Delivered by the
-    /// system whether or not any window exists, unlike scene-level `onOpenURL`.
+    /// Receives `tether://open?path=...` / `tether://batch?ref=...` links
+    /// (Finder Sync context menu) and file URLs (Dock-icon drops,
+    /// `open -a Tether file`). Delivered by the system whether or not any
+    /// window exists, unlike scene-level `onOpenURL`.
     func application(_ application: NSApplication, open urls: [URL]) {
         // Deferred one runloop turn so SwiftUI scenes have a chance to register
         // their openWindow action with WindowRouter first (launch-time case).
         DispatchQueue.main.async {
+            // Dropping several files at once (or `open -a Tether a b c`) opens
+            // one batch editor instead of N single editors.
+            let fileURLs = urls.filter(\.isFileURL)
+            if fileURLs.count > 1 {
+                WindowRouter.shared.openBatchEditor(for: fileURLs)
+                return
+            }
             for url in urls {
-                if url.scheme == "tether", let fileURL = TetherURLRouter.fileURL(from: url) {
+                if url.scheme == "tether", let batchURLs = BatchRequestLoader.fileURLs(from: url) {
+                    WindowRouter.shared.openBatchEditor(for: batchURLs)
+                } else if url.scheme == "tether", let fileURL = TetherURLRouter.fileURL(from: url) {
                     WindowRouter.shared.openNoteEditor(for: fileURL)
                 } else if url.isFileURL {
                     WindowRouter.shared.openNoteEditor(for: url)

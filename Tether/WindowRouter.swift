@@ -60,9 +60,44 @@ final class WindowRouter {
             openWindowAction(id: "settings")
         } else {
             presentFallbackWindow(
-                title: "Global Shortcut",
+                title: "Global Shortcuts",
                 size: NSSize(width: 440, height: 230),
                 rootView: SettingsView()
+            )
+        }
+        NSApp.activate()
+    }
+
+    /// Opens (or focuses) the Spotlight-style search window and brings the app forward.
+    func openSearch() {
+        if let openWindowAction {
+            openWindowAction(id: "search")
+        } else {
+            presentFallbackWindow(
+                title: "Search Notes",
+                size: NSSize(width: 620, height: 520),
+                rootView: SearchView()
+            )
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Opens (or focuses) the batch tag/note editor for `fileURLs` and brings
+    /// the app forward. A single URL keeps the classic behavior: one editor.
+    func openBatchEditor(for fileURLs: [URL]) {
+        guard fileURLs.count > 1 else {
+            if let only = fileURLs.first { openNoteEditor(for: only) }
+            return
+        }
+        if let openWindowAction {
+            // Window deduplicates by value: re-presenting the same file set
+            // focuses the existing batch window.
+            openWindowAction(id: "batch-edit", value: fileURLs)
+        } else {
+            presentFallbackWindow(
+                title: "Tether Batch Edit — \(fileURLs.count) files",
+                size: NSSize(width: 560, height: 620),
+                rootView: BatchEditView(fileURLs: fileURLs)
             )
         }
         NSApp.activate()

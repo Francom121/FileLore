@@ -161,6 +161,19 @@ final class FinderSync: FIFinderSync {
         )
         item.target = self
         menu.addItem(item)
+
+        // Multi-selection gets a batch item: the file list is handed to the
+        // app through a JSON file in this container's tmp dir.
+        let selectionCount = FIFinderSyncController.default().selectedItemURLs()?.count ?? 0
+        if selectionCount > 1 {
+            let batchItem = NSMenuItem(
+                title: "Batch Tag with Tether…",
+                action: #selector(batchTagWithTether(_:)),
+                keyEquivalent: ""
+            )
+            batchItem.target = self
+            menu.addItem(batchItem)
+        }
         return menu
     }
 
@@ -187,6 +200,34 @@ final class FinderSync: FIFinderSync {
         components.scheme = "tether"
         components.host = "open"
         components.queryItems = [URLQueryItem(name: "path", value: fileURL.path(percentEncoded: false))]
+        if let url = components.url {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// Multi-selection: write the selected paths as JSON into this container's
+    /// tmp directory, then open `tether://batch?ref=<filename>`. The
+    /// (unsandboxed) main app reads the file back (`BatchRequestLoader`) and
+    /// opens the batch editor; this keeps arbitrarily long file lists out of
+    /// the URL itself.
+    @IBAction func batchTagWithTether(_ sender: AnyObject?) {
+        guard let urls = FIFinderSyncController.default().selectedItemURLs(), urls.count > 1 else { return }
+
+        let ref = "tether-batch-\(UUID().uuidString).json"
+        let fileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent(ref, isDirectory: false)
+        do {
+            let paths = urls.map { $0.path(percentEncoded: false) }
+            try JSONEncoder().encode(paths).write(to: fileURL, options: .atomic)
+        } catch {
+            DebugLog.log("batch: failed to write paths file \(fileURL.path): \(error.localizedDescription)")
+            return
+        }
+
+        var components = URLComponents()
+        components.scheme = "tether"
+        components.host = "batch"
+        components.queryItems = [URLQueryItem(name: "ref", value: ref)]
         if let url = components.url {
             NSWorkspace.shared.open(url)
         }
