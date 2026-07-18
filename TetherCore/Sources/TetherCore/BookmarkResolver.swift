@@ -57,6 +57,13 @@ public enum BookmarkResolver {
         return Resolution(url: url, isStale: stale)
     }
 
+    /// Display string for a resolved linked file's location: its parent folder
+    /// path with a trailing slash, styled like the note editor header shows the
+    /// noted file's own folder (full path, no home abbreviation).
+    public static func locationDisplay(for url: URL) -> String {
+        url.deletingLastPathComponent().path(percentEncoded: false)
+    }
+
     /// Builds a `LinkedFile` for `url`, caching a display name and a path hint
     /// relative to `base` (typically the noted file's folder) when possible.
     public static func makeLinkedFile(for url: URL, relativeTo base: URL? = nil) throws -> LinkedFile {

@@ -24,7 +24,8 @@ struct FileLoreApp: App {
                 Text("No file")
             }
         }
-        .defaultSize(width: 520, height: 640)
+        // Roomier default so the media peek pane fits beside the note controls.
+        .defaultSize(width: 900, height: 560)
 
         Window("Search Notes", id: "search") {
             SearchView()

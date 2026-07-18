@@ -221,21 +221,22 @@ struct NoteEditorView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    bodyEditor
-                    tagsField
-                    linksSection
-                    webLinksPreview
-                }
-                .padding(20)
+        // Media peek: playable/previewable files (video, audio, images, PDF,
+        // text) get a live media pane beside the note controls; anything else
+        // keeps the classic single-column editor (header thumbnail only).
+        let showsMedia = MediaPreview.kind(for: model.fileURL) != .other
+        HStack(spacing: 0) {
+            if showsMedia {
+                MediaPreviewView(url: model.fileURL)
+                    .id(model.fileURL)  // file change → fresh pane (old player torn down)
+                    .frame(minWidth: 320, maxWidth: .infinity)
+                    .background(Color.black.opacity(0.04))
+                Divider()
             }
-            Divider()
-            actionBar
+            editorColumn
+                .frame(minWidth: 440, maxWidth: .infinity)
         }
-        .frame(minWidth: 480, minHeight: 560)
+        .frame(minWidth: showsMedia ? 780 : 480, minHeight: 560)
         .navigationTitle(model.fileURL.lastPathComponent)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -252,6 +253,25 @@ struct NoteEditorView: View {
                 }
                 .help("Export the note (text, tags, links) as Markdown")
             }
+        }
+    }
+
+    /// The classic editor: header, note body, tags, linked files, web links,
+    /// and the persistent Save bar — unchanged, now the right-hand column.
+    private var editorColumn: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    bodyEditor
+                    tagsField
+                    linksSection
+                    webLinksPreview
+                }
+                .padding(20)
+            }
+            Divider()
+            actionBar
         }
     }
 
@@ -405,7 +425,9 @@ private struct LinkRow: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                 } else {
-                    Text(item.pathHint)
+                    // Line 2 is the file's LOCATION (parent folder), styled
+                    // like the header's folder line for the noted file.
+                    Text(item.resolvedURL.map { BookmarkResolver.locationDisplay(for: $0) } ?? item.pathHint)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

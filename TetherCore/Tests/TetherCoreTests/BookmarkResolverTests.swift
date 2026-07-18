@@ -72,4 +72,22 @@ final class BookmarkResolverTests: XCTestCase {
         XCTAssertEqual(lf.relativePathHint, "reference photo.png")
         XCTAssertFalse(lf.bookmark.isEmpty)
     }
+
+    func testLocationDisplayShowsParentFolderWithTrailingSlash() throws {
+        // tempDir's path already carries a trailing slash (directory URL).
+        XCTAssertEqual(
+            BookmarkResolver.locationDisplay(for: linkedFile),
+            tempDir.path(percentEncoded: false)
+        )
+        XCTAssertTrue(BookmarkResolver.locationDisplay(for: linkedFile).hasSuffix("/"))
+    }
+
+    func testLocationDisplayHandlesSpacesAndRoot() throws {
+        let spaced = URL(fileURLWithPath: "/Users/fm/Documents/TagPanda/Social Media/ads girl.png")
+        XCTAssertEqual(
+            BookmarkResolver.locationDisplay(for: spaced),
+            "/Users/fm/Documents/TagPanda/Social Media/"
+        )
+        XCTAssertEqual(BookmarkResolver.locationDisplay(for: URL(fileURLWithPath: "/file.txt")), "/")
+    }
 }

@@ -1,11 +1,6 @@
-import AVFoundation
-import AVKit
 import Cocoa
-import ImageIO
-import PDFKit
 import Quartz
 import SwiftUI
-import UniformTypeIdentifiers
 import TetherCore
 
 /// Quick Look preview for files carrying a FileLore note.
@@ -69,12 +64,23 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         // Re-preparing the same controller: clear any previous content.
         view.subviews.forEach { $0.removeFromSuperview() }
 
-        let contentType = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
-            ?? UTType(filenameExtension: url.pathExtension)
-            ?? .data
-        DebugLog.log("content type: \(contentType.identifier)")
+        let mediaKind = MediaPreview.kind(for: url)
+        DebugLog.log("media kind: \(mediaKind)")
 
-        let mediaView = makeMediaView(for: url, contentType: contentType)
+        let mediaView: NSView
+        switch mediaKind {
+        case .av: DebugLog.log("media path: AVPlayerView (video/audio)")
+        case .image: DebugLog.log("media path: NSImageView (image, decoded via ImageIO)")
+        case .pdf: DebugLog.log("media path: PDFView")
+        case .text: DebugLog.log("media path: NSTextView (plain text)")
+        case .other: DebugLog.log("media path: file icon fallback")
+        }
+        if let view = MediaPreview.makeMediaView(for: url) {
+            mediaView = view
+        } else {
+            if mediaKind != .other { DebugLog.log("renderer could not decode file — falling back to icon") }
+            mediaView = makeIconView(for: url)
+        }
         let noteView = NSHostingView(rootView: NotePreviewView(note: note, fileURL: url))
 
         let splitView = NSSplitView(frame: view.bounds)
@@ -95,141 +101,10 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
 
     // MARK: - Native content rendering
 
-    /// Builds the left-hand media pane for the file, choosing the renderer by
-    /// UTType conformance, with a path-extension heuristic as fallback for
-    /// files whose UTI is dynamic (unregistered extensions get `dyn.*` UTIs
-    /// that only conform to `public.data`). Every path logs its choice.
-    private func makeMediaView(for url: URL, contentType: UTType) -> NSView {
-        let ext = url.pathExtension.lowercased()
-        if contentType.conforms(to: .audiovisualContent)
-            || contentType.conforms(to: .movie)
-            || contentType.conforms(to: .audio)
-            || MediaKind.avExtensions.contains(ext) {
-            DebugLog.log("media path: AVPlayerView (video/audio)")
-            return makePlayerView(for: url)
-        }
-        if contentType.conforms(to: .image) || MediaKind.imageExtensions.contains(ext) {
-            DebugLog.log("media path: NSImageView (image, decoded via ImageIO)")
-            return makeImageView(for: url)
-        }
-        if contentType.conforms(to: .pdf) || ext == "pdf" {
-            DebugLog.log("media path: PDFView")
-            return makePDFView(for: url)
-        }
-        if contentType.conforms(to: .text) || contentType.conforms(to: .sourceCode)
-            || MediaKind.textExtensions.contains(ext) {
-            DebugLog.log("media path: NSTextView (plain text)")
-            return makeTextView(for: url)
-        }
-        DebugLog.log("media path: file icon fallback")
-        return makeIconView(for: url)
-    }
+    // Media-type detection and media-view construction live in TetherCore
+    // (`MediaPreview`), shared with the main app's note-editor media pane.
 
-    /// Path-extension fallbacks used when the file's UTI is dynamic and
-    /// conformance checks can't see what the file is.
-    private enum MediaKind {
-        static let avExtensions: Set<String> = [
-            "mp4", "m4v", "mov", "mpg", "mpeg", "mpe", "m2v", "mts", "m2ts",
-            "avi", "mkv", "webm", "wmv", "flv", "3gp", "3g2",
-            "mp3", "m4a", "aac", "aif", "aiff", "aifc", "au", "wav", "caf",
-            "flac", "ogg", "opus", "wma",
-        ]
-        static let imageExtensions: Set<String> = [
-            "png", "jpg", "jpeg", "tif", "tiff", "gif", "bmp", "heic", "heif",
-            "webp", "psd", "psb", "raw", "dng", "cr2", "cr3", "nef", "arw",
-            "orf", "rw2", "exr", "hdr",
-        ]
-        static let textExtensions: Set<String> = [
-            "txt", "text", "md", "markdown", "log", "csv", "tsv", "json",
-            "xml", "yaml", "yml", "toml", "ini", "cfg", "conf",
-            "swift", "py", "js", "ts", "sh", "zsh", "bash", "c", "h", "cpp",
-            "hpp", "cc", "java", "kt", "rb", "go", "rs", "html", "css", "sql",
-        ]
-    }
-
-    /// Video/audio: playable `AVPlayerView` with inline controls.
-    private func makePlayerView(for url: URL) -> NSView {
-        let playerView = AVPlayerView()
-        playerView.player = AVPlayer(url: url)
-        playerView.controlsStyle = .inline
-        playerView.videoGravity = .resizeAspect
-        return playerView
-    }
-
-    /// Images: aspect-fit `NSImageView`. Decoding goes through ImageIO
-    /// (`CGImageSource`), which also handles PSD (`com.adobe.photoshop-image`).
-    private func makeImageView(for url: URL) -> NSView {
-        var image: NSImage?
-        if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-           let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) {
-            image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-        } else {
-            image = NSImage(contentsOf: url)
-            if image == nil {
-                DebugLog.log("image decode FAILED via ImageIO and NSImage — falling back to icon")
-                return makeIconView(for: url)
-            }
-            DebugLog.log("image decoded via NSImage fallback (ImageIO returned nil)")
-        }
-        let imageView = NSImageView()
-        imageView.image = image
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.imageAlignment = .alignCenter
-        imageView.imageFrameStyle = .none
-        return imageView
-    }
-
-    /// PDF: `PDFKit.PDFView` with auto-scaling.
-    private func makePDFView(for url: URL) -> NSView {
-        let pdfView = PDFView()
-        pdfView.autoScales = true
-        if let document = PDFDocument(url: url) {
-            pdfView.document = document
-        } else {
-            DebugLog.log("PDFDocument FAILED to load — falling back to icon")
-            return makeIconView(for: url)
-        }
-        return pdfView
-    }
-
-    /// Plain text: read-only, scrollable `NSTextView`. Very large files are
-    /// truncated to the first 512 KB to stay within extension memory limits.
-    private func makeTextView(for url: URL) -> NSView {
-        var text: String?
-        if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
-            let capped = data.count > 512 * 1024 ? data.prefix(512 * 1024) : data
-            text = String(data: capped, encoding: .utf8)
-                ?? String(data: capped, encoding: .isoLatin1)
-            if data.count > 512 * 1024 {
-                text = (text ?? "") + "\n\n[… truncated — showing first 512 KB …]"
-            }
-        }
-        guard let text else {
-            DebugLog.log("text decode FAILED — falling back to icon")
-            return makeIconView(for: url)
-        }
-
-        let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
-        scrollView.borderType = .noBorder
-
-        let textView = NSTextView()
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        textView.textContainerInset = NSSize(width: 12, height: 12)
-        textView.string = text
-        // Wrap to the scroll view's width.
-        textView.textContainer?.widthTracksTextView = true
-        textView.autoresizingMask = [.width]
-
-        scrollView.documentView = textView
-        return scrollView
-    }
-
-    /// Anything else: large file icon.
+    /// Fallback for files with no media renderer: large file icon.
     private func makeIconView(for url: URL) -> NSView {
         let icon = NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false))
         icon.size = NSSize(width: 256, height: 256)

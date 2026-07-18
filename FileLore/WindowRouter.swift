@@ -33,7 +33,7 @@ final class WindowRouter {
         } else {
             presentFallbackWindow(
                 title: "FileLore Note — \(fileURL.lastPathComponent)",
-                size: NSSize(width: 520, height: 640),
+                size: NSSize(width: 900, height: 560),
                 rootView: NoteEditorView(fileURL: fileURL)
             )
         }
