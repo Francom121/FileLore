@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import TetherCore
 
 /// Spotlight-style search over every noted file in the registry.
@@ -9,8 +10,17 @@ import TetherCore
 /// path no longer resolves are skipped; files whose note xattr vanished are
 /// kept (name-only matching) and flagged in the list. Results update live as
 /// you type; the tag-chip strip AND-filters the current results.
+///
+/// Pinned tags (see `PinnedTagsStore`) get their own chip row above the
+/// filter chips: one click filters the results to that tag, right-click
+/// unpins. Any tag chip or result-row tag pill can be pinned via right-click.
+///
+/// Results are multi-selectable (⌘-click toggles, ⇧-click ranges); the
+/// "Export…" button (or the right-click context item) writes all selected
+/// notes to ONE Markdown file via `MarkdownExporter.batchMarkdown`.
 struct SearchView: View {
     @StateObject private var model = SearchModel()
+    @ObservedObject private var pinnedStore = PinnedTagsStore.shared
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
@@ -36,6 +46,28 @@ struct SearchView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
 
+            // Pinned tags: one click filters to that tag, right-click unpins.
+            if !pinnedStore.pinned.isEmpty {
+                Divider()
+                ScrollView(.horizontal) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        ForEach(pinnedStore.pinned, id: \.self) { tag in
+                            PinnedTagChip(
+                                tag: tag,
+                                isActive: model.activeTags.contains(tag),
+                                onFilter: { model.filterByPinnedTag(tag) },
+                                onUnpin: { pinnedStore.unpin(tag) }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+            }
+
             // Tag filter chips (built from every tag in the registry)
             if !model.allTags.isEmpty {
                 Divider()
@@ -44,8 +76,11 @@ struct SearchView: View {
                         ForEach(model.allTags, id: \.self) { tag in
                             TagFilterChip(
                                 tag: tag,
-                                isActive: model.activeTags.contains(tag)
-                            ) { model.toggleTag(tag) }
+                                isActive: model.activeTags.contains(tag),
+                                isPinned: pinnedStore.isPinned(tag),
+                                onToggle: { model.toggleTag(tag) },
+                                onPinToggle: { pinnedStore.toggle(tag) }
+                            )
                         }
                     }
                     .padding(.horizontal, 16)
@@ -67,30 +102,45 @@ struct SearchView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollViewReader { proxy in
-                    List(model.results, selection: $model.selectedResultID) { result in
+                    List(model.results, selection: $model.selectedResultIDs) { result in
                         SearchResultRow(result: result)
                             .tag(result.id)
                             .contentShape(Rectangle())
-                            .onTapGesture { model.open(result) }
+                            .onTapGesture(count: 2) { model.open(result) }
                             .contextMenu {
                                 Button("Open Note") { model.open(result) }
                                 Button("Reveal in Finder") { model.reveal(result) }
+                                Divider()
+                                if model.selectedResultIDs.count > 1,
+                                   model.selectedResultIDs.contains(result.id) {
+                                    Button("Export \(model.selectedResultIDs.count) Selected Notes…") {
+                                        model.exportSelection()
+                                    }
+                                } else {
+                                    Button("Export Note…") { model.export(result) }
+                                }
                             }
                     }
                     .listStyle(.plain)
-                    .onChange(of: model.selectedResultID) { _, newValue in
-                        if let newValue {
-                            withAnimation { proxy.scrollTo(newValue) }
+                    .onChange(of: model.selectedResultIDs) { _, newValue in
+                        if let first = model.results.first(where: { newValue.contains($0.id) }) {
+                            withAnimation { proxy.scrollTo(first.id) }
                         }
                     }
                 }
             }
 
             Divider()
-            HStack {
+            HStack(spacing: 8) {
                 Text("\(model.results.count) result\(model.results.count == 1 ? "" : "s")")
+                if !model.selectedResultIDs.isEmpty {
+                    Text("· \(model.selectedResultIDs.count) selected")
+                }
                 Spacer()
-                Text("↩ open · ⌘↩ reveal in Finder · right-click for more")
+                Button("Export…") { model.exportSelection() }
+                    .disabled(model.selectedResultIDs.isEmpty)
+                    .help("Export the selected notes as one Markdown file")
+                Text("↩ open · ⌘↩ reveal · ⌘/⇧-click select")
             }
             .font(.caption)
             .foregroundStyle(.tertiary)
@@ -112,6 +162,7 @@ struct SearchView: View {
 
 private struct SearchResultRow: View {
     let result: SearchResult
+    @ObservedObject private var pinnedStore = PinnedTagsStore.shared
 
     var body: some View {
         HStack(spacing: 10) {
@@ -151,6 +202,11 @@ private struct SearchResultRow: View {
                                 .padding(.vertical, 1)
                                 .background(Color.accentColor.opacity(0.14), in: Capsule())
                                 .foregroundStyle(Color.accentColor)
+                                .contextMenu {
+                                    Button(pinnedStore.isPinned(tag) ? "Unpin Tag" : "Pin Tag") {
+                                        pinnedStore.toggle(tag)
+                                    }
+                                }
                         }
                     }
                 }
@@ -161,26 +217,72 @@ private struct SearchResultRow: View {
     }
 }
 
-// MARK: - Tag chip
+// MARK: - Tag chips
 
+/// One chip in the filter strip. Click toggles the AND-filter; right-click
+/// pins/unpins the tag (pinned tags surface in the pinned row and the menu
+/// bar dropdown).
 private struct TagFilterChip: View {
     let tag: String
     let isActive: Bool
+    let isPinned: Bool
     let onToggle: () -> Void
+    let onPinToggle: () -> Void
 
     var body: some View {
         Button(action: onToggle) {
-            Text(tag)
-                .font(.caption)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(
-                    isActive ? Color.accentColor : Color.accentColor.opacity(0.14),
-                    in: Capsule()
-                )
-                .foregroundStyle(isActive ? .white : Color.accentColor)
+            HStack(spacing: 3) {
+                if isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 7))
+                }
+                Text(tag)
+            }
+            .font(.caption)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(
+                isActive ? Color.accentColor : Color.accentColor.opacity(0.14),
+                in: Capsule()
+            )
+            .foregroundStyle(isActive ? .white : Color.accentColor)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(isPinned ? "Unpin Tag" : "Pin Tag", action: onPinToggle)
+        }
+    }
+}
+
+/// One chip in the pinned row. Click filters the results to exactly this tag
+/// (click again to clear); right-click unpins.
+private struct PinnedTagChip: View {
+    let tag: String
+    let isActive: Bool
+    let onFilter: () -> Void
+    let onUnpin: () -> Void
+
+    var body: some View {
+        Button(action: onFilter) {
+            HStack(spacing: 3) {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 7))
+                Text(tag)
+            }
+            .font(.caption)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(
+                isActive ? Color.accentColor : Color.secondary.opacity(0.16),
+                in: Capsule()
+            )
+            .foregroundStyle(isActive ? .white : .primary)
+        }
+        .buttonStyle(.plain)
+        .help("Filter by #\(tag) (right-click to unpin)")
+        .contextMenu {
+            Button("Unpin Tag", action: onUnpin)
+        }
     }
 }
 
@@ -192,7 +294,9 @@ final class SearchModel: ObservableObject {
     @Published private(set) var candidates: [SearchCandidate] = []
     @Published private(set) var results: [SearchResult] = []
     @Published var activeTags: Set<String> = [] { didSet { applyFilters() } }
-    @Published var selectedResultID: SearchResult.ID?
+    /// Multi-selection (⌘-click toggles, ⇧-click ranges). Keyboard navigation
+    /// collapses this to a single element.
+    @Published var selectedResultIDs: Set<SearchResult.ID> = []
 
     private(set) var allTags: [String] = []
     var hasCandidates: Bool { !candidates.isEmpty }
@@ -233,6 +337,16 @@ final class SearchModel: ObservableObject {
         }
     }
 
+    /// Pinned-tag click: filter to exactly this tag (clicking the active one
+    /// clears the filter again).
+    func filterByPinnedTag(_ tag: String) {
+        if activeTags == [tag] {
+            activeTags = []
+        } else {
+            activeTags = [tag]
+        }
+    }
+
     private func applyFilters() {
         var filtered = SearchEngine.search(query, in: candidates)
         if !activeTags.isEmpty {
@@ -244,8 +358,11 @@ final class SearchModel: ObservableObject {
             }
         }
         results = filtered
-        if !filtered.contains(where: { $0.id == selectedResultID }) {
-            selectedResultID = filtered.first?.id
+        // Keep the selection inside the visible results; fall back to the
+        // first result so ↩ always has something to open.
+        selectedResultIDs = selectedResultIDs.intersection(Set(filtered.map(\.id)))
+        if selectedResultIDs.isEmpty, let first = filtered.first {
+            selectedResultIDs = [first.id]
         }
     }
 
@@ -253,22 +370,20 @@ final class SearchModel: ObservableObject {
 
     func moveSelection(_ offset: Int) {
         guard !results.isEmpty else { return }
-        let current = results.firstIndex(where: { $0.id == selectedResultID }) ?? 0
+        let current = results.firstIndex(where: { selectedResultIDs.contains($0.id) }) ?? 0
         let next = min(max(current + offset, 0), results.count - 1)
-        selectedResultID = results[next].id
+        selectedResultIDs = [results[next].id]
+    }
+
+    private var primarySelection: SearchResult? {
+        results.first(where: { selectedResultIDs.contains($0.id) }) ?? results.first
     }
 
     func openSelected() {
         if NSEvent.modifierFlags.contains(.command) {
-            revealSelected()
-        } else if let selected = results.first(where: { $0.id == selectedResultID }) ?? results.first {
+            if let selected = primarySelection { reveal(selected) }
+        } else if let selected = primarySelection {
             open(selected)
-        }
-    }
-
-    private func revealSelected() {
-        if let selected = results.first(where: { $0.id == selectedResultID }) ?? results.first {
-            reveal(selected)
         }
     }
 
@@ -278,5 +393,69 @@ final class SearchModel: ObservableObject {
 
     func reveal(_ result: SearchResult) {
         NSWorkspace.shared.activateFileViewerSelecting([result.candidate.fileURL])
+    }
+
+    // MARK: - Batch Markdown export
+
+    /// Exports every selected result that still carries a note.
+    func exportSelection() {
+        export(results: results.filter { selectedResultIDs.contains($0.id) })
+    }
+
+    func export(_ result: SearchResult) {
+        export(results: [result])
+    }
+
+    /// NSSavePanel (default `FileLore Export <yyyy-MM-dd>.md`) → ONE Markdown
+    /// document for all selected notes, then reveals it in Finder. Results
+    /// whose note xattr vanished can't be exported and are reported skipped.
+    private func export(results selected: [SearchResult]) {
+        var items: [MarkdownExporter.ExportItem] = []
+        var skipped = 0
+        for result in selected {
+            if let note = result.candidate.note {
+                items.append(MarkdownExporter.ExportItem(
+                    note: note,
+                    fileName: result.candidate.displayName,
+                    filePath: result.candidate.fileURL.path(percentEncoded: false)
+                ))
+            } else {
+                skipped += 1
+            }
+        }
+        guard !items.isEmpty else {
+            showAlert(title: "Nothing to Export",
+                      message: "None of the selected files still carries a FileLore note, so there is nothing to export.")
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.title = "Export Notes as Markdown"
+        panel.nameFieldStringValue = "FileLore Export \(MarkdownExporter.exportDateString()).md"
+        panel.allowedContentTypes = [.init(filenameExtension: "md")].compactMap { $0 }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            try MarkdownExporter.batchMarkdown(for: items)
+                .write(to: url, atomically: true, encoding: .utf8)
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            if skipped > 0 {
+                showAlert(
+                    title: "Export Complete",
+                    message: "Exported \(items.count) note\(items.count == 1 ? "" : "s"). \(skipped) selected file\(skipped == 1 ? "was" : "s were") skipped because its note is missing."
+                )
+            }
+        } catch {
+            showAlert(title: "Export Failed", message: error.localizedDescription)
+        }
+    }
+
+    private func showAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }

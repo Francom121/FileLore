@@ -37,7 +37,18 @@ struct FileLoreApp: App {
         }
         .windowResizability(.contentSize)
 
-        MenuBarExtra("FileLore", systemImage: "note.text") {
+        // The status item is SwiftUI-managed: created exactly once at launch,
+        // independent of any window state, and alive for the whole app run.
+        // Keep this unconditional — no `isInserted:` binding, no preference
+        // gate, nothing tied to window lifecycle. The branded quill image is
+        // template-rendered so it adapts to the menu bar's light/dark state,
+        // and the asset is named "FileLore" on purpose: the menu bar item's
+        // accessibility label comes from the asset name, which is how the
+        // item is identified in System Settings → Menu Bar. (If the item
+        // still doesn't appear, the cause is user-side: macOS 26 collapses
+        // menu bar items behind the » chevron and manages them per app in
+        // System Settings → Menu Bar.)
+        MenuBarExtra("FileLore", image: "FileLore") {
             RecentFilesMenu()
         }
     }
