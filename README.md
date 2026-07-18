@@ -96,12 +96,17 @@ Bundle IDs: `com.filelore.app` (app), `com.filelore.app.QuickLook`,
   (skipped silently, and retried next launch, if the container doesn't exist
   yet). Each successful bridge write posts the Darwin notification
   `com.filelore.app.badgesChanged` so the extension reloads immediately.
-- The extension (`BadgeRegistryReader`) stats each badge-requested URL and
-  matches its (dev, ino) against the mirrored registry, reloading when the
-  file's mtime changes or the Darwin notification fires. Because matching is by
-  inode, badges survive renames and moves on the same volume — same guarantee
-  as the xattr itself. A direct `NoteStore.hasNote` read remains only as a
-  last-resort fallback when the registry has no match.
+- The extension (`BadgeRegistryReader`) reloads the mirrored registry when the
+  file's mtime changes or the Darwin notification fires, and **pushes badges
+  proactively** on every (re)load: each registry path gets
+  `setBadgeIdentifier`, and URLs badged earlier in the session that dropped
+  out of the registry get cleared — so new/removed badges appear without
+  waiting for Finder to re-ask. When Finder does ask
+  (`requestBadgeIdentifier`), the lookup order is (dev, ino) match →
+  standardized path match (robust against stale inodes, e.g. a noted file
+  replaced in place) → sandboxed xattr read as a last resort → clear. Because
+  the primary match is by inode, badges survive renames and moves on the same
+  volume — same guarantee as the xattr itself.
 - The badge image itself is `FileLoreBadge.png`, the amber quill circle from the
   app logo cropped with a transparent margin (36×36 = 18pt @2x), bundled in the
   appex. The SF Symbol `note.text` remains as a fallback if the resource is missing.
@@ -211,7 +216,9 @@ render Finder Sync badges in **column view (⌘3)** or **gallery view (⌘4)** a
 all, so their absence there is expected, not a bug. The badge decision comes
 from the badge registry bridge (see Architecture): the main app publishes noted
 files by inode into the extension's container, so badges appear without the
-sandboxed extension reading any xattrs.
+sandboxed extension reading any xattrs. The extension also applies badges
+proactively on every registry change, so badges show up moments after a note
+is saved — no need to re-browse the folder.
 
 ### Editing
 
@@ -235,12 +242,13 @@ sandboxed extension reading any xattrs.
   "view note" gesture for media files is ⌥T or the right-click menu instead.
 - Templates are built-in only; the UserDefaults-backed store for custom templates exists
   but the editing UI is future work.
-- Finder Sync badge refresh is event-driven by Finder; the app nudges the
-  extension via a Darwin notification (`com.filelore.app.badgesChanged`) whenever
-  the badge registry changes, but the badge itself appears only when Finder
-  next asks the extension for the file's badge. After updating the app, Finder
-  may need to re-observe a folder (open it / right-click inside it) before
-  badges and the context menu show up there.
+- Finder Sync badges are pushed proactively: on every registry change (Darwin
+  notification `com.filelore.app.badgesChanged`, registry mtime change, or
+  extension launch) the extension badges every registry path directly and
+  clears badges for files that are no longer noted — Finder does not need to
+  re-ask. Only after updating the *app itself* may Finder need to re-observe
+  a folder (open it / right-click inside it) so the refreshed extension is
+  launched and the context menu shows up there.
 - Notes do not follow files copied to other volumes/cloud drives (xattr limitation,
   by design of the storage model).
 - Linked files: single click opens in the default app; inline Quick Look preview of

@@ -221,16 +221,19 @@ struct NoteEditorView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                header
-                bodyEditor
-                tagsField
-                linksSection
-                webLinksPreview
-                statusLine
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    bodyEditor
+                    tagsField
+                    linksSection
+                    webLinksPreview
+                }
+                .padding(20)
             }
-            .padding(20)
+            Divider()
+            actionBar
         }
         .frame(minWidth: 480, minHeight: 560)
         .navigationTitle(model.fileURL.lastPathComponent)
@@ -248,12 +251,6 @@ struct NoteEditorView: View {
                     Button("Copy Markdown to Clipboard") { model.copyMarkdownToPasteboard() }
                 }
                 .help("Export the note (text, tags, links) as Markdown")
-                if model.hasExistingNote {
-                    Button("Delete Note", role: .destructive) { model.deleteNote() }
-                }
-                Button("Save") { model.save() }
-                    .keyboardShortcut("s", modifiers: .command)
-                    .buttonStyle(.borderedProminent)
             }
         }
     }
@@ -351,13 +348,33 @@ struct NoteEditorView: View {
         }
     }
 
-    @ViewBuilder
-    private var statusLine: some View {
-        if let status = model.status {
-            Text(status)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    /// Persistent bottom action bar. The Save affordance lives here — not only
+    /// in the toolbar, which collapses into the ">>" overflow chevron at the
+    /// default 520pt window width — so it stays unmissable at any window width.
+    /// ⌘S is attached to this always-visible button, so the shortcut keeps
+    /// working even while the text editor has focus.
+    private var actionBar: some View {
+        HStack(spacing: 12) {
+            if let status = model.status {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            if model.hasExistingNote {
+                Button("Delete Note", role: .destructive) { model.deleteNote() }
+                    .help("Delete the note from this file")
+            }
+            Button("Save Note") { model.save() }
+                .keyboardShortcut("s", modifiers: .command)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .help("Save the note (⌘S)")
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.bar)
     }
 }
 

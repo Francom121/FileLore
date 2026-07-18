@@ -69,7 +69,56 @@ final class FinderSync: FIFinderSync {
         DebugLog.log("init: badge image valid = \(image.isValid), size = \(NSStringFromSize(image.size))")
         DebugLog.log("init: \(BadgeRegistryReader.shared.statusDescription)")
 
+        FinderSync.installProactiveBadgeApply()
         FinderSync.subscribeToBadgeChanges()
+    }
+
+    // MARK: - Proactive badge apply
+
+    /// URLs this extension badged proactively this session — diffed against
+    /// the registry on every (re)load so dropped entries get cleared.
+    private static var proactivelyBadgedURLs: Set<URL> = []
+
+    /// Finder only asks for badges (`requestBadgeIdentifier`) while a folder
+    /// is being browsed and does NOT re-ask after a note is saved, so badges
+    /// decided lazily would stay stale until the user re-browses. Instead,
+    /// every registry (re)load — initial load, mtime change, Darwin
+    /// notification — pushes badges proactively: every registry path gets the
+    /// badge, and URLs badged earlier this session that dropped out of the
+    /// registry get cleared. Registry paths live under the monitored home
+    /// directory, so setting badges by URL is allowed.
+    private static func installProactiveBadgeApply() {
+        BadgeRegistryReader.shared.onReload = { entries in
+            DispatchQueue.main.async {
+                FinderSync.applyBadgesProactively(entries: entries)
+            }
+        }
+        // The reader's initial load already ran on the first `.shared` access
+        // above, before `onReload` could be installed — reload once so the
+        // current registry is applied immediately.
+        BadgeRegistryReader.shared.reload(reason: "extension init")
+    }
+
+    /// Pushes the registry's badges to Finder directly. Main thread only.
+    private static func applyBadgesProactively(entries: [BadgeRegistryReader.Entry]) {
+        let controller = FIFinderSyncController.default()
+        var currentURLs = Set<URL>()
+        for entry in entries {
+            let url = URL(fileURLWithPath: entry.path)
+            currentURLs.insert(url)
+            controller.setBadgeIdentifier(FinderSync.badgeIdentifier, for: url)
+        }
+        let staleURLs = proactivelyBadgedURLs.subtracting(currentURLs)
+        for url in staleURLs {
+            controller.setBadgeIdentifier("", for: url)
+        }
+        proactivelyBadgedURLs = currentURLs
+        if !currentURLs.isEmpty {
+            DebugLog.log("proactive: badged \(currentURLs.count) files")
+        }
+        if !staleURLs.isEmpty {
+            DebugLog.log("proactive: cleared \(staleURLs.count) files")
+        }
     }
 
     // MARK: - Badge change notification
@@ -111,9 +160,11 @@ final class FinderSync: FIFinderSync {
     /// macOS never renders Finder Sync badges in column view (⌘3) or gallery
     /// view, so silence here while browsing in column view is expected.
     ///
-    /// Lookup order: (dev, ino) in the badge registry → sandboxed xattr read
-    /// as a last-resort fallback (it fails for most paths but may work for
-    /// Finder-handed URLs) → clear badge.
+    /// Lookup order: (dev, ino) in the badge registry → standardized path
+    /// match against the registry (survives stale inodes, e.g. a noted file
+    /// replaced in place) → sandboxed xattr read as a last-resort fallback
+    /// (it fails for most paths but may work for Finder-handed URLs) → clear
+    /// badge.
     override func requestBadgeIdentifier(for url: URL) {
         let path = url.path(percentEncoded: false)
         DebugLog.log("badge request: \(url.lastPathComponent) — \(BadgeRegistryReader.shared.statusDescription)")
@@ -124,22 +175,26 @@ final class FinderSync: FIFinderSync {
         let attributes = try? FileManager.default.attributesOfItem(atPath: path)
         let dev = (attributes?[.systemNumber] as? NSNumber)?.uint64Value
         let ino = (attributes?[.systemFileNumber] as? NSNumber)?.uint64Value
-        if let dev, let ino {
-            if BadgeRegistryReader.shared.contains(dev: dev, ino: ino) {
-                hasNote = true
-                decision = "registry match (dev=\(dev) ino=\(ino))"
-                DebugLog.log("badge request: \(url.lastPathComponent) — \(decision)")
+        if let dev, let ino, BadgeRegistryReader.shared.contains(dev: dev, ino: ino) {
+            hasNote = true
+            decision = "registry match (dev=\(dev) ino=\(ino))"
+            DebugLog.log("badge request: \(url.lastPathComponent) — \(decision)")
+        } else {
+            if let dev, let ino {
+                DebugLog.log("badge request: \(url.lastPathComponent) — stat dev=\(dev) ino=\(ino), no registry match; trying path match")
             } else {
-                DebugLog.log("badge request: \(url.lastPathComponent) — stat dev=\(dev) ino=\(ino), no registry match; trying xattr fallback")
+                DebugLog.log("badge request: \(url.lastPathComponent) — stat failed for \(path); trying path match")
+            }
+            if BadgeRegistryReader.shared.contains(path: path) {
+                hasNote = true
+                decision = "path match"
+                DebugLog.log("badge request: \(url.lastPathComponent) — path match")
+            } else {
+                DebugLog.log("badge request: \(url.lastPathComponent) — no path match; trying xattr fallback")
                 hasNote = NoteStore.hasNote(url: url)
                 decision = hasNote ? "xattr fallback hit" : "xattr fallback miss — clearing badge"
                 DebugLog.log("badge request: \(url.lastPathComponent) — \(decision)")
             }
-        } else {
-            DebugLog.log("badge request: \(url.lastPathComponent) — stat failed for \(path); trying xattr fallback")
-            hasNote = NoteStore.hasNote(url: url)
-            decision = hasNote ? "xattr fallback hit" : "xattr fallback miss — clearing badge"
-            DebugLog.log("badge request: \(url.lastPathComponent) — \(decision)")
         }
 
         NSLog("FileLoreFinderSync badge request for %@ — %@",
