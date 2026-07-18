@@ -31,6 +31,42 @@
 			<key>QLSupportedContentTypes</key>
 			<array>
 				<string>public.data</string>
+				<string>public.audiovisual-content</string>
+				<string>public.movie</string>
+				<string>public.video</string>
+				<string>public.audio</string>
+				<string>public.image</string>
+				<string>public.text</string>
+				<string>public.mpeg-4</string>
+				<string>com.apple.quicktime-movie</string>
+				<string>public.mpeg</string>
+				<string>public.mpeg-2-video</string>
+				<string>public.mpeg-2-transport-stream</string>
+				<string>public.avi</string>
+				<string>public.3gpp</string>
+				<string>public.3gpp2</string>
+				<string>com.apple.m4v-video</string>
+				<string>public.mp3</string>
+				<string>public.mpeg-4-audio</string>
+				<string>com.apple.m4a-audio</string>
+				<string>public.aiff-audio</string>
+				<string>public.aifc-audio</string>
+				<string>public.au-audio</string>
+				<string>public.png</string>
+				<string>public.jpeg</string>
+				<string>public.tiff</string>
+				<string>public.gif</string>
+				<string>public.bmp</string>
+				<string>public.heic</string>
+				<string>public.heif</string>
+				<string>public.webp</string>
+				<string>com.adobe.photoshop-image</string>
+				<string>com.adobe.raw-image</string>
+				<string>com.adobe.pdf</string>
+				<string>public.plain-text</string>
+				<string>net.daringfireball.markdown</string>
+				<string>public.source-code</string>
+				<string>org.matroska.mkv</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
