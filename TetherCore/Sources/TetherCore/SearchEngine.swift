@@ -1,7 +1,7 @@
 import Foundation
 
 /// One searchable file: its URL, display name, the note it carries (or `nil`
-/// when the file exists but its `com.tether.note` xattr vanished), and the
+/// when the file exists but its `com.filelore.note` xattr vanished), and the
 /// recency timestamp used for ranking.
 public struct SearchCandidate: Equatable, Sendable {
     public var fileURL: URL

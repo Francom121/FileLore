@@ -1,5 +1,7 @@
 # Tether — Mac File Sticky Notes App — Project Spec
 
+> **Note:** the app has been renamed to **FileLore**. This spec is kept as written under the original name for history; see README.md for the current naming (bundle IDs, `filelore://` scheme, `com.filelore.note` xattr) and the rename-migration notes.
+
 **Tagline:** Notes that stay tethered to your files — through renames, moves, and everything else.
 
 ## Overview

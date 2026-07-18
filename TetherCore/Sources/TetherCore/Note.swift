@@ -19,7 +19,7 @@ public struct LinkedFile: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-/// A sticky note attached to a file via the `com.tether.note` extended attribute.
+/// A sticky note attached to a file via the `com.filelore.note` extended attribute.
 public struct Note: Codable, Equatable, Sendable {
     public var body: String
     public var tags: [String]

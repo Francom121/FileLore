@@ -1,4 +1,5 @@
 // swift-tools-version: 6.0
+// TetherCore is the shared engine for the FileLore app (module name kept to avoid churn).
 import PackageDescription
 
 let package = Package(
