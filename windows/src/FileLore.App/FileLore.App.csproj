@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>FileLore.App</RootNamespace>
+    <AssemblyName>FileLore</AssemblyName>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>FileLore</Product>
+    <Description>FileLore — sticky notes for your files (Windows)</Description>
+    <Version>0.2.0</Version>
+  </PropertyGroup>
+
+  <!-- Avoid System.Windows.Forms global usings clashing with WPF types
+       (Application, KeyEventArgs, Orientation, ...); WinForms is used via
+       explicit aliases where needed (NotifyIcon, ContextMenuStrip). -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FileLore.Core\FileLore.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\app.ico" />
+    <Resource Include="Resources\icon-256.png" />
+  </ItemGroup>
+
+</Project>
