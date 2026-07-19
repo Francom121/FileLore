@@ -230,7 +230,10 @@ struct NoteEditorView: View {
                 MediaPreviewView(url: model.fileURL)
                     .id(model.fileURL)  // file change → fresh pane (old player torn down)
                     .frame(minWidth: 320, maxWidth: .infinity)
-                    .background(Color.black.opacity(0.04))
+                    // Float the framed media card inside a window-colored
+                    // column; the card supplies its own border/background.
+                    .padding(12)
+                    .background(Color(nsColor: .windowBackgroundColor))
                     // Hosted AppKit views aren't clipped by SwiftUI; keep the
                     // media strictly inside its pane no matter what it renders.
                     .clipped()
@@ -239,7 +242,7 @@ struct NoteEditorView: View {
             editorColumn
                 .frame(minWidth: 440, maxWidth: .infinity)
         }
-        .frame(minWidth: showsMedia ? 780 : 480, minHeight: 560)
+        .frame(minWidth: showsMedia ? 800 : 480, minHeight: 560)
         .navigationTitle(model.fileURL.lastPathComponent)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {

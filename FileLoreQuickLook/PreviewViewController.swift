@@ -75,8 +75,11 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         case .text: DebugLog.log("media path: NSTextView (plain text)")
         case .other: DebugLog.log("media path: file icon fallback")
         }
-        if let view = MediaPreview.makeMediaView(for: url) {
-            mediaView = view
+        if let framed = MediaPreview.makeFramedMediaView(for: url) {
+            // Float the framed card (rounded corners, hairline border,
+            // window-matching background) inside the split pane with a
+            // margin on all sides.
+            mediaView = Self.marginContainer(framed, margin: 10)
         } else {
             if mediaKind != .other { DebugLog.log("renderer could not decode file — falling back to icon") }
             mediaView = makeIconView(for: url)
@@ -103,6 +106,19 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
 
     // Media-type detection and media-view construction live in TetherCore
     // (`MediaPreview`), shared with the main app's note-editor media pane.
+
+    /// Wraps a view in a plain container that keeps a constant margin around
+    /// it (autoresizing-based, so it plays well with NSSplitView's frame
+    /// resizing). The container background matches the window.
+    private static func marginContainer(_ content: NSView, margin: CGFloat) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        content.frame = container.bounds.insetBy(dx: margin, dy: margin)
+        content.autoresizingMask = [.width, .height]
+        container.addSubview(content)
+        return container
+    }
 
     /// Fallback for files with no media renderer: large file icon.
     private func makeIconView(for url: URL) -> NSView {

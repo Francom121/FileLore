@@ -92,6 +92,15 @@ public enum MediaPreview {
         }
     }
 
+    /// Like `makeMediaView`, but wrapped in a `MediaPaneView` card: rounded
+    /// corners, a hairline border, and a window-matching background so
+    /// letterboxed areas (video pillarbox, image letterbox) look intentional.
+    /// Returns `nil` under the same conditions as `makeMediaView`.
+    public static func makeFramedMediaView(for url: URL) -> NSView? {
+        guard let mediaView = makeMediaView(for: url) else { return nil }
+        return MediaPaneView(contentView: mediaView)
+    }
+
     /// Video/audio: playable `AVPlayerView` with inline controls. The player
     /// starts paused — no autoplay-with-sound surprises.
     private static func makePlayerView(for url: URL) -> NSView {
