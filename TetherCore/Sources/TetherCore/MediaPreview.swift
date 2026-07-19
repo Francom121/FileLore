@@ -10,7 +10,8 @@ import UniformTypeIdentifiers
 public enum MediaPreviewKind: Equatable, Sendable {
     /// Video/audio → playable `AVPlayerView` (start-paused).
     case av
-    /// Images, including PSD (decoded via ImageIO) → aspect-fit `NSImageView`.
+    /// Images, including PSD (decoded via ImageIO) → aspect-fit
+    /// `LetterboxedImageView` (letterboxed, clipped, downscale-only).
     case image
     /// PDF → `PDFKit.PDFView`.
     case pdf
@@ -101,8 +102,9 @@ public enum MediaPreview {
         return playerView
     }
 
-    /// Images: aspect-fit `NSImageView`. Decoding goes through ImageIO
-    /// (`CGImageSource`), which also handles PSD (`com.adobe.photoshop-image`).
+    /// Images: aspect-fit `LetterboxedImageView` (clipped, downscale-only,
+    /// neutral background). Decoding goes through ImageIO (`CGImageSource`),
+    /// which also handles PSD (`com.adobe.photoshop-image`).
     private static func makeImageView(for url: URL) -> NSView? {
         var image: NSImage?
         if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
@@ -112,12 +114,7 @@ public enum MediaPreview {
             image = NSImage(contentsOf: url)
         }
         guard let image else { return nil }
-        let imageView = NSImageView()
-        imageView.image = image
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.imageAlignment = .alignCenter
-        imageView.imageFrameStyle = .none
-        return imageView
+        return LetterboxedImageView(image: image)
     }
 
     /// PDF: `PDFKit.PDFView` with auto-scaling.

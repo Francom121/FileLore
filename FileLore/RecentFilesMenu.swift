@@ -47,6 +47,9 @@ struct RecentFilesMenu: View {
             Button("Search Notes…") {
                 WindowRouter.shared.openSearch()
             }
+            Button("Keyboard Shortcuts…") {
+                WindowRouter.shared.openShortcuts()
+            }
             Button("Global Shortcut: \(HotKeyManager.shared.currentShortcut.displayString)") {
                 WindowRouter.shared.openSettings()
             }

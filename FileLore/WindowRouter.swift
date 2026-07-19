@@ -68,6 +68,21 @@ final class WindowRouter {
         NSApp.activate()
     }
 
+    /// Opens (or focuses) the keyboard-shortcut cheat sheet and brings the
+    /// app forward.
+    func openShortcuts() {
+        if let openWindowAction {
+            openWindowAction(id: "shortcuts")
+        } else {
+            presentFallbackWindow(
+                title: "Keyboard Shortcuts",
+                size: NSSize(width: 520, height: 560),
+                rootView: ShortcutsPanelView()
+            )
+        }
+        NSApp.activate()
+    }
+
     /// Opens (or focuses) the Spotlight-style search window and brings the app forward.
     func openSearch() {
         if let openWindowAction {

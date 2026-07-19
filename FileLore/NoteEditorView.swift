@@ -231,6 +231,9 @@ struct NoteEditorView: View {
                     .id(model.fileURL)  // file change → fresh pane (old player torn down)
                     .frame(minWidth: 320, maxWidth: .infinity)
                     .background(Color.black.opacity(0.04))
+                    // Hosted AppKit views aren't clipped by SwiftUI; keep the
+                    // media strictly inside its pane no matter what it renders.
+                    .clipped()
                 Divider()
             }
             editorColumn

@@ -8,7 +8,8 @@ import AppKit
 /// Return, Tab, or comma (pasted "a, b, c" splits into several pills). Tags
 /// are trimmed, empties rejected, and duplicates refused case-insensitively.
 /// Double-clicking a pill turns it back into an inline editor — Return/Tab
-/// commits, Esc cancels.
+/// commits, Esc cancels. Right-clicking a pill pins/unpins the tag (shared
+/// `PinnedTagsStore`); pinned pills show a small pin glyph.
 struct TagPillEditor: View {
     @Binding var tags: [String]
     /// The in-progress (not yet committed) text of the new-tag field. Lifted
@@ -114,9 +115,16 @@ private struct TagPill: View {
     let tag: String
     let onRemove: () -> Void
     let onEdit: () -> Void
+    /// Observed so the pin glyph appears/disappears live when the tag is
+    /// pinned or unpinned from anywhere (here, search, menu bar).
+    @ObservedObject private var pinnedStore = PinnedTagsStore.shared
 
     var body: some View {
         HStack(spacing: 5) {
+            if pinnedStore.isPinned(tag) {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 8))
+            }
             Text(tag)
                 .font(.callout)
                 .lineLimit(1)
@@ -134,7 +142,12 @@ private struct TagPill: View {
         .background(Color.accentColor.opacity(0.16), in: Capsule())
         .foregroundStyle(Color.accentColor)
         .onTapGesture(count: 2, perform: onEdit)
-        .help("Double-click to edit")
+        .help("Double-click to edit · right-click to pin")
+        .contextMenu {
+            Button(pinnedStore.isPinned(tag) ? "Unpin Tag" : "Pin Tag") {
+                pinnedStore.toggle(tag)
+            }
+        }
     }
 }
 

@@ -15,6 +15,11 @@ struct FileLoreApp: App {
                 Button("Search Notes…") { WindowRouter.shared.openSearch() }
                     .keyboardShortcut("f", modifiers: .command)
             }
+            // The app ships no Help Book; the Help menu slot becomes the
+            // keyboard-shortcut cheat sheet.
+            CommandGroup(replacing: .help) {
+                Button("Keyboard Shortcuts…") { WindowRouter.shared.openShortcuts() }
+            }
         }
 
         WindowGroup("FileLore Note", id: "note-editor", for: URL.self) { $fileURL in
@@ -35,6 +40,11 @@ struct FileLoreApp: App {
 
         Window("Settings", id: "settings") {
             SettingsView()
+        }
+        .windowResizability(.contentSize)
+
+        Window("Keyboard Shortcuts", id: "shortcuts") {
+            ShortcutsPanelView()
         }
         .windowResizability(.contentSize)
 

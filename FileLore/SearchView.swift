@@ -196,17 +196,23 @@ private struct SearchResultRow: View {
                 if let tags = result.candidate.note?.tags, !tags.isEmpty {
                     HStack(spacing: 4) {
                         ForEach(tags, id: \.self) { tag in
-                            Text(tag)
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 1)
-                                .background(Color.accentColor.opacity(0.14), in: Capsule())
-                                .foregroundStyle(Color.accentColor)
-                                .contextMenu {
-                                    Button(pinnedStore.isPinned(tag) ? "Unpin Tag" : "Pin Tag") {
-                                        pinnedStore.toggle(tag)
-                                    }
+                            HStack(spacing: 3) {
+                                if pinnedStore.isPinned(tag) {
+                                    Image(systemName: "pin.fill")
+                                        .font(.system(size: 6))
                                 }
+                                Text(tag)
+                            }
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Color.accentColor.opacity(0.14), in: Capsule())
+                            .foregroundStyle(Color.accentColor)
+                            .contextMenu {
+                                Button(pinnedStore.isPinned(tag) ? "Unpin Tag" : "Pin Tag") {
+                                    pinnedStore.toggle(tag)
+                                }
+                            }
                         }
                     }
                 }
@@ -221,13 +227,16 @@ private struct SearchResultRow: View {
 
 /// One chip in the filter strip. Click toggles the AND-filter; right-click
 /// pins/unpins the tag (pinned tags surface in the pinned row and the menu
-/// bar dropdown).
+/// bar dropdown). Hovering also reveals a small pin button at the chip's
+/// trailing edge, so pinning is discoverable without knowing to right-click.
 private struct TagFilterChip: View {
     let tag: String
     let isActive: Bool
     let isPinned: Bool
     let onToggle: () -> Void
     let onPinToggle: () -> Void
+
+    @State private var isHovered = false
 
     var body: some View {
         Button(action: onToggle) {
@@ -248,6 +257,25 @@ private struct TagFilterChip: View {
             .foregroundStyle(isActive ? .white : Color.accentColor)
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .topTrailing) {
+            // Hover-revealed pin toggle as a corner badge: no layout shift in
+            // the chip strip and no overlap with the tag's text.
+            if isHovered {
+                Button(action: onPinToggle) {
+                    Image(systemName: isPinned ? "pin.fill" : "pin")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(3.5)
+                        .background(Color.accentColor, in: Circle())
+                        .shadow(color: .black.opacity(0.25), radius: 1, y: 0.5)
+                }
+                .buttonStyle(.plain)
+                .offset(x: 5, y: -5)
+                .help(isPinned ? "Unpin tag" : "Pin tag")
+                .accessibilityLabel(isPinned ? "Unpin tag \(tag)" : "Pin tag \(tag)")
+            }
+        }
+        .onHover { isHovered = $0 }
         .contextMenu {
             Button(isPinned ? "Unpin Tag" : "Pin Tag", action: onPinToggle)
         }
