@@ -9,6 +9,17 @@ struct FileLoreApp: App {
             DropZoneView()
         }
         .defaultSize(width: 440, height: 340)
+        // The drop zone is opened explicitly by AppDelegate/WindowRouter
+        // (cold launch, Dock-icon reopen, or an explicit user command) and
+        // never restored, so a previously duplicated drop zone can never
+        // resurrect a second one; there is exactly one drop zone,
+        // raised/reused via WindowRouter.openMainWindow().
+        .restorationBehavior(.disabled)
+        // This scene must NOT be a target for incoming files/URLs: without
+        // this, SwiftUI delivers every open-document event to the "main"
+        // WindowGroup by materializing a NEW drop-zone window per event
+        // (one per Finder right-click → Add/Edit FileLore Note).
+        .handlesExternalEvents(matching: [])
         .commands {
             // ⌘F opens the search window whenever the app is active.
             CommandGroup(after: .newItem) {
@@ -31,22 +42,31 @@ struct FileLoreApp: App {
         }
         // Roomier default so the media peek pane fits beside the note controls.
         .defaultSize(width: 900, height: 560)
+        // Editors are presented exclusively via WindowRouter (openWindow),
+        // which deduplicates by file URL. Declaring no external events keeps
+        // SwiftUI from materializing a zombie nil-value editor window for
+        // every incoming open-document event.
+        .handlesExternalEvents(matching: [])
 
         Window("Search Notes", id: "search") {
             SearchView()
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 620, height: 520)
+        // Not a target for incoming files/URLs (see "main" above).
+        .handlesExternalEvents(matching: [])
 
         Window("Settings", id: "settings") {
             SettingsView()
         }
         .windowResizability(.contentSize)
+        .handlesExternalEvents(matching: [])
 
         Window("Keyboard Shortcuts", id: "shortcuts") {
             ShortcutsPanelView()
         }
         .windowResizability(.contentSize)
+        .handlesExternalEvents(matching: [])
 
         // The status item is SwiftUI-managed: created exactly once at launch,
         // independent of any window state, and alive for the whole app run.

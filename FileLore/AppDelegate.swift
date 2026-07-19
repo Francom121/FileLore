@@ -11,6 +11,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The currently bound global shortcut, for user-facing messages.
     private var shortcutDisplay: String { GlobalShortcutStore.load().displayString }
 
+    /// Set once the launch-time drop-zone decision has been made (0.5s after
+    /// didFinishLaunching). Open requests only matter to that decision while
+    /// the launch is still settling.
+    private var launchSettled = false
+    /// An open request (file/URL open or Services invocation) arrived while
+    /// this launch was still settling: the launch exists to open something,
+    /// so the launch-time logic must not also show the drop zone.
+    private var openRequestArrivedDuringLaunch = false
+
+    /// Records an incoming open request for the launch-time drop-zone logic.
+    private func noteOpenRequest() {
+        if !launchSettled {
+            openRequestArrivedDuringLaunch = true
+        }
+    }
+
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,6 +45,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Publish the badge registry to the Finder Sync extension (also the
         // retry point for when its container didn't exist on earlier runs).
         BadgeRegistryBridge.refresh()
+
+        // The drop zone is opened explicitly, here: plain cold launch
+        // (Dock / Finder / login item) shows exactly one drop zone — by
+        // design the app's landing window, also alongside any restored
+        // editor windows. A launch that arrived carrying an open request
+        // (see `openRequestArrivedDuringLaunch`) skips it: that launch
+        // shows only the requested editor. Deferred briefly (not one
+        // runloop turn) because a Services invocation can land slightly
+        // after didFinishLaunching; 0.5s is imperceptible for a landing
+        // window. openMainWindow is single-instance, so this can never
+        // create a second drop zone.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self else { return }
+            self.launchSettled = true
+            guard !self.openRequestArrivedDuringLaunch else {
+                return
+            }
+            WindowRouter.shared.openMainWindow()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -44,8 +79,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // though a window is about to appear. Opening the main window
             // right here would race SwiftUI and produce a second window.
             // Defer one runloop turn and re-check for any visible non-panel
-            // window; only then open.
-            DispatchQueue.main.async {
+            // window; only then open. Also skip when this launch/reopen is
+            // delivering an open request — that path shows only the editor.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !self.openRequestArrivedDuringLaunch else {
+                    return
+                }
                 let hasVisibleWindow = NSApp.windows.contains { window in
                     window.isVisible && !(window is NSPanel)
                 }
@@ -106,6 +145,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `open -a FileLore file`). Delivered by the system whether or not any
     /// window exists, unlike scene-level `onOpenURL`.
     func application(_ application: NSApplication, open urls: [URL]) {
+        // Stamp first, before any deferral: the launch-time drop-zone logic
+        // reads this to learn the launch exists to open something.
+        if !urls.isEmpty {
+            noteOpenRequest()
+        }
         // Deferred one runloop turn so SwiftUI scenes have a chance to register
         // their openWindow action with WindowRouter first (launch-time case).
         DispatchQueue.main.async {
@@ -151,6 +195,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             error.pointee = "No file was provided to the Open FileLore Note service." as NSString
             return
         }
+        // Stamp like any other open request: when the Service launched the
+        // app, the launch-time drop-zone logic must stay out of the way.
+        noteOpenRequest()
         WindowRouter.shared.openNoteEditor(for: first)
     }
 

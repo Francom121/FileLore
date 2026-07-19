@@ -15,6 +15,10 @@ final class WindowRouter {
 
     private var openWindowAction: OpenWindowAction?
     private var fallbackWindowControllers: [NSWindowController] = []
+    /// The live drop-zone window, captured by `DropZoneView` once it joins a
+    /// window. Lets `openMainWindow()` raise the existing drop zone instead
+    /// of duplicating it.
+    private weak var mainWindow: NSWindow?
 
     private init() {}
 
@@ -24,25 +28,53 @@ final class WindowRouter {
         openWindowAction = action
     }
 
+    /// Called by the drop-zone view when its hosting window materializes.
+    func registerMainWindow(_ window: NSWindow) {
+        mainWindow = window
+    }
+
     /// Opens (or focuses) the note editor for `fileURL` and brings the app forward.
     func openNoteEditor(for fileURL: URL) {
+        openNoteEditor(for: fileURL, retriesRemaining: 100)
+    }
+
+    private func openNoteEditor(for fileURL: URL, retriesRemaining: Int) {
         if let openWindowAction {
             // WindowGroup deduplicates by value: an already-open editor for the
             // same file is brought to the front instead of duplicated.
             openWindowAction(id: "note-editor", value: fileURL)
-        } else {
-            presentFallbackWindow(
-                title: "FileLore Note — \(fileURL.lastPathComponent)",
-                size: NSSize(width: 900, height: 560),
-                rootView: NoteEditorView(fileURL: fileURL)
-            )
+            NSApp.activate()
+            return
         }
+        if retriesRemaining > 0 {
+            // Cold launch: no scene has registered its openWindow action yet
+            // (SwiftUI materializes scenes a moment after didFinishLaunching,
+            // and a first-run privacy prompt can stall that for seconds).
+            // Falling back to an AppKit window right away would duplicate the
+            // editor SwiftUI presents for the same file a moment later —
+            // retry briefly first (100 × 0.1s), then fall back as before.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.openNoteEditor(for: fileURL, retriesRemaining: retriesRemaining - 1)
+            }
+            return
+        }
+        presentFallbackEditor(for: fileURL)
         NSApp.activate()
     }
 
-    /// Opens the main drop-zone window and brings the app forward.
+    /// Opens (or focuses) the main drop-zone window and brings the app forward.
+    ///
+    /// Single-instance: if a drop-zone window already exists it is raised,
+    /// never duplicated — `openWindow(id:)` on a WindowGroup would create a
+    /// NEW window on every call, which is how repeated Finder "Add/Edit
+    /// FileLore Note" invocations used to pile up drop-zone windows.
     func openMainWindow() {
-        if let openWindowAction {
+        if let mainWindow, mainWindow.isVisible || mainWindow.isMiniaturized {
+            if mainWindow.isMiniaturized {
+                mainWindow.deminiaturize(nil)
+            }
+            mainWindow.makeKeyAndOrderFront(nil)
+        } else if let openWindowAction {
             openWindowAction(id: "main")
         } else {
             presentFallbackWindow(
@@ -138,5 +170,43 @@ final class WindowRouter {
         }
         controller.showWindow(nil)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Fallback note editors, keyed by file URL, so a late-materializing
+    /// SwiftUI editor for the same file can replace them (never two editors
+    /// for one file).
+    private var fallbackEditors: [URL: NSWindowController] = [:]
+
+    /// Fallback window presentation specifically for note editors: tracked so
+    /// `swiftUIEditorDidAppear(for:)` can close it if SwiftUI also presents
+    /// an editor for the same file.
+    private func presentFallbackEditor(for fileURL: URL) {
+        let window = NSWindow(contentViewController: NSHostingController(
+            rootView: NoteEditorView(fileURL: fileURL, isFallbackHosted: true)
+        ))
+        window.title = "FileLore Note — \(fileURL.lastPathComponent)"
+        window.setContentSize(NSSize(width: 900, height: 560))
+        window.isReleasedWhenClosed = false
+        let controller = NSWindowController(window: window)
+        fallbackEditors[fileURL] = controller
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.fallbackEditors.removeValue(forKey: fileURL)
+            }
+        }
+        controller.showWindow(nil)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Called by a SwiftUI-hosted note editor when it appears. If a fallback
+    /// AppKit editor is open for the same file (cold-launch race), close it —
+    /// the SwiftUI window is the canonical one.
+    func swiftUIEditorDidAppear(for fileURL: URL) {
+        guard let controller = fallbackEditors.removeValue(forKey: fileURL) else { return }
+        controller.window?.close()
     }
 }

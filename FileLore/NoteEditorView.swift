@@ -216,9 +216,15 @@ struct NoteEditorView: View {
     @StateObject private var model: NoteEditorModel
     @State private var linksDropTargeted = false
 
-    init(fileURL: URL) {
+    init(fileURL: URL, isFallbackHosted: Bool = false) {
         _model = StateObject(wrappedValue: NoteEditorModel(fileURL: fileURL))
+        self.isFallbackHosted = isFallbackHosted
     }
+
+    /// True when hosted in WindowRouter's AppKit fallback window (cold-launch
+    /// race); such a window must not try to close itself when a SwiftUI
+    /// editor for the same file appears.
+    private let isFallbackHosted: Bool
 
     var body: some View {
         // Media peek: playable/previewable files (video, audio, images, PDF,
@@ -244,6 +250,11 @@ struct NoteEditorView: View {
         }
         .frame(minWidth: showsMedia ? 800 : 480, minHeight: 560)
         .navigationTitle(model.fileURL.lastPathComponent)
+        .onAppear {
+            if !isFallbackHosted {
+                WindowRouter.shared.swiftUIEditorDidAppear(for: model.fileURL)
+            }
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Menu("Template") {
