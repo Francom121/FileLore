@@ -1,0 +1,50 @@
+<Window x:Class="FileLore.App.DropZoneWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="440" Height="380" MinWidth="380" MinHeight="320"
+        WindowStartupLocation="CenterScreen"
+        Background="#FAFAF8" FontFamily="Segoe UI" FontSize="13"
+        Title="New note / batch — FileLore">
+  <Grid Margin="22">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- Dashed drop target -->
+    <Border Grid.Row="0" CornerRadius="14" Background="White" BorderBrush="#EB961E" BorderThickness="0"
+            AllowDrop="True" DragOver="Zone_DragOver" Drop="Zone_Drop" DragEnter="Zone_DragEnter" DragLeave="Zone_DragLeave">
+      <Grid>
+        <Rectangle x:Name="Dash" RadiusX="14" RadiusY="14" Fill="Transparent"
+                   Stroke="#EB961E" StrokeThickness="2" StrokeDashArray="6 4" Margin="2"/>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+          <TextBlock Text="⇩" FontSize="40" Foreground="#EB961E" HorizontalAlignment="Center"/>
+          <TextBlock x:Name="DropText" Text="Drop files here" FontSize="17" FontWeight="SemiBold"
+                     HorizontalAlignment="Center" Margin="0,10,0,0"/>
+          <TextBlock Text="One file opens its note — several open the batch window"
+                     Foreground="#8A8A84" FontSize="12" HorizontalAlignment="Center" Margin="0,6,0,0"
+                     TextWrapping="Wrap" TextAlignment="Center" MaxWidth="300"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Button Grid.Row="1" x:Name="BrowseBtn" Content="Browse files…" Margin="0,14,0,0"
+            Padding="14,8" Cursor="Hand" Background="White" BorderBrush="#DDDDD6" Click="Browse_Click">
+      <Button.Template>
+        <ControlTemplate TargetType="Button">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Button.Template>
+    </Button>
+
+    <TextBlock Grid.Row="2" Margin="2,12,0,0" FontSize="11.5" Foreground="#B0B0A8" TextWrapping="Wrap"
+               Text="Tip: dropping files onto the Desktop shortcut or selecting several files and choosing “FileLore Note” does the same thing."/>
+  </Grid>
+</Window>

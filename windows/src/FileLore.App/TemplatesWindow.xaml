@@ -1,0 +1,55 @@
+<Window x:Class="FileLore.App.TemplatesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="560" Height="440" MinWidth="460" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="#FAFAF8" FontFamily="Segoe UI" FontSize="13"
+        Title="Manage templates — FileLore">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="170"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+
+    <!-- Template list -->
+    <Border Grid.Row="0" Grid.Column="0" CornerRadius="10" Background="White"
+            BorderBrush="#ECECE6" BorderThickness="1" Margin="0,0,14,0">
+      <ListBox x:Name="TemplateList" BorderThickness="0" Background="Transparent"
+               SelectionChanged="TemplateList_SelectionChanged"/>
+    </Border>
+
+    <!-- Editor -->
+    <Grid Grid.Row="0" Grid.Column="1">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <Border CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1" Margin="0,0,0,10">
+        <TextBox x:Name="NameBox" BorderThickness="0" Background="Transparent" Padding="10,7"
+                 FontSize="13" FontWeight="SemiBold" ToolTip="Template name"/>
+      </Border>
+      <Border Grid.Row="1" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1">
+        <TextBox x:Name="BodyBoxEdit" AcceptsReturn="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent"
+                 Padding="10" FontSize="13" VerticalContentAlignment="Top" ToolTip="Template body"/>
+      </Border>
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+        <Button Content="Save changes" Click="Save_Click" Padding="12,6" Margin="0,0,8,0"
+                Background="#EB961E" Foreground="White" FontWeight="SemiBold" Cursor="Hand"/>
+        <Button Content="New template" Click="New_Click" Padding="12,6" Margin="0,0,8,0"
+                Background="White" BorderBrush="#DDDDD6" Cursor="Hand"/>
+        <Button Content="Delete" Click="Delete_Click" Padding="12,6"
+                Background="White" Foreground="#C0392B" BorderBrush="#E5B7B0" Cursor="Hand"/>
+      </StackPanel>
+    </Grid>
+
+    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="2,12,0,0" FontSize="11.5"
+               Foreground="#B0B0A8" TextWrapping="Wrap"
+               Text="Templates live on this PC only — your Mac templates are not synced."/>
+  </Grid>
+</Window>

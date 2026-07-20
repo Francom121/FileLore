@@ -20,13 +20,57 @@ Install (2 minutes)
 4. That's it. FileLore starts in the system tray and comes back
    every time you sign in.
 
+Already installed an older version?
+  Just run Install-FileLore.cmd from this new zip - it replaces the
+  app, keeps your notes and settings, and you're done. No need to
+  uninstall first.
+
+  FIRST LAUNCH can take up to a minute (one-time self-extraction +
+  Windows scan). Later launches are fast.
+
 Use it
 ------
 - Right-click any file  ->  "Show more options"  ->  "FileLore Note"
   (on Windows 10 the verb shows directly in the right-click menu)
+  Select SEVERAL files and do the same - one batch window opens and
+  sets the note body and tags on all of them at once.
 - Ctrl+Alt+T  opens a note for the file selected in Explorer
 - Ctrl+Alt+F  searches all your notes
-- Desktop and Start Menu shortcuts are created too.
+- Drop files onto the Desktop shortcut, or onto the drop zone
+  (tray menu -> "New note / batch…"): one file opens its note,
+  several open the batch window.
+
+Inside the note editor
+----------------------
+- Media peek: video/audio plays right beside your note (play, scrub,
+  volume); images show aspect-fit; other formats show a large
+  thumbnail or icon.
+- Linked files: drag files onto the editor (or click "Add files…") to
+  attach reference photos, scripts, anything. Click a row to open it;
+  click x to remove. If a linked file goes missing you get a red
+  "Link broken - relink?" state with a Relink button. (A file moved
+  together with the noted file's folder is still found automatically.)
+- Templates: pick one from the Templates dropdown to prefill an EMPTY
+  note (ships with "AI Generation"; add your own via "Manage
+  templates…"). Templates live on this PC only - they don't sync
+  from the Mac app.
+- Export… saves the note as Markdown, matching the Mac export.
+
+Search window
+-------------
+- Right-click any tag chip to pin it - pinned tags sit on top with a
+  pin glyph and filter with one click.
+- Ctrl/Shift-click to multi-select results, then Export… writes ONE
+  Markdown document (grouped by tag when the selection spans 2+ tags,
+  like the Mac) and reveals it in Explorer.
+- Tray menu -> "Pinned Tags" lists noted files per pinned tag.
+
+Make it yours
+-------------
+- Tray menu -> Settings… rebinds both global hotkeys: click a box,
+  press a combo, Save. Conflicts keep the previous binding.
+- Tray menu -> "Keyboard Shortcuts…" lists every shortcut (always
+  shows your current bindings).
 
 Good to know
 ------------
@@ -37,6 +81,8 @@ Good to know
   so there is no database to back up; the files ARE the storage.
 - No admin rights are ever needed. Everything installs under
   %LOCALAPPDATA%\FileLore and your own registry hive (HKCU).
+- The Windows app doesn't render PDFs inline in the editor (the Mac
+  app does) - PDFs show their icon instead.
 
 Uninstall
 ---------

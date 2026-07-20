@@ -8,17 +8,18 @@ namespace FileLore.App;
 /// <summary>
 /// Entry point and tray host.
 ///
-/// Instance model: a plain (session-local) mutex marks the first instance,
-/// which owns the tray icon, the global hotkeys and the search window, and
-/// lives until Exit. A later instance launched with a file path (e.g. a
-/// second Explorer right-click) opens its own editor window and exits when
-/// that window closes — two editors for two files are fine, two tray icons
-/// are not.
+/// Instance model: a session-local mutex marks the first instance, which
+/// owns the tray icon, the global hotkeys, the search window and a named
+/// pipe (<see cref="InstanceMessenger"/>). Explorer multi-select fires one
+/// process per file: instances 2..N forward their path over the pipe and
+/// exit; the first instance debounce-collects (~1.5 s) every path —
+/// including its own command-line argument — and opens ONE batch window
+/// for many files or the note editor for a single file.
 ///
 /// Command line:
 ///   FileLore.exe [path]            open the editor for path (or start tray)
 ///   FileLore.exe --tray            start tray-only, no balloon (autostart)
-///   FileLore.exe --hotkey-open-selection   dev hook: run the Ctrl+Alt+T handler
+///   FileLore.exe --hotkey-open-selection   dev hook: run the note-selection handler
 ///   FileLore.exe --selftest …      headless verification (see SelfTest)
 /// </summary>
 public partial class App : Application
@@ -29,15 +30,21 @@ public partial class App : Application
     private System.Drawing.Icon? _trayIconImage;
     private HotkeyManager? _hotkeys;
     private SearchWindow? _searchWindow;
+    private DropZoneWindow? _dropZone;
+    private SettingsWindow? _settingsWindow;
+    private ShortcutsWindow? _shortcutsWindow;
+
+    // Debounce collector for paths arriving via the pipe / command line.
+    private readonly object _pendingGate = new();
+    private readonly List<string> _pendingPaths = new();
+    private System.Threading.Timer? _pendingTimer;
+    private static readonly TimeSpan CollectWindow = TimeSpan.FromMilliseconds(1500);
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        // Headless test hook used by the milestone verification harness:
-        //   FileLore.exe --selftest <resultFile> <targetPath> <body> <tagsCsv>
-        //   FileLore.exe --selftest search <resultFile>
-        //   FileLore.exe --selftest netpath <resultFile>
+        // Headless verification hooks (see SelfTest for the full list):
         if (e.Args.Length >= 1 && e.Args[0] == "--selftest")
         {
             int code = SelfTest.Run(e.Args);
@@ -45,7 +52,7 @@ public partial class App : Application
             return;
         }
 
-        // Dev hook: run the exact Ctrl+Alt+T handler without physical keys.
+        // Dev hook: run the exact note-selection hotkey handler without physical keys.
         if (e.Args.Length >= 1 && e.Args[0] == "--hotkey-open-selection")
         {
             ShutdownMode = ShutdownMode.OnLastWindowClose;
@@ -64,9 +71,10 @@ public partial class App : Application
             ShutdownMode = ShutdownMode.OnExplicitShutdown; // tray keeps app alive
             SetupTray();
             SetupHotkeys();
+            InstanceMessenger.StartServer(EnqueuePath);
             if (path is not null)
             {
-                OpenEditor(path);
+                EnqueuePath(path); // own arg joins the same debounce batch as piped paths
             }
             else if (!trayOnly)
             {
@@ -82,10 +90,52 @@ public partial class App : Application
                 Shutdown(); // tray already running elsewhere; nothing to do
                 return;
             }
+            // Explorer multi-select: forward our file to the first instance
+            // and exit, so N right-clicked files become ONE batch window.
+            if (InstanceMessenger.TrySend(path))
+            {
+                Shutdown();
+                return;
+            }
+            // No server answered (shouldn't happen) — open our own editor.
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             OpenEditor(path);
         }
     }
+
+    // ---- path collection (single-file → editor, many → batch window) -------------
+
+    private void EnqueuePath(string path)
+    {
+        lock (_pendingGate)
+        {
+            if (!_pendingPaths.Contains(path, StringComparer.OrdinalIgnoreCase))
+                _pendingPaths.Add(path);
+            _pendingTimer?.Dispose();
+            _pendingTimer = new System.Threading.Timer(_ => FlushPendingPaths(), null,
+                CollectWindow, System.Threading.Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void FlushPendingPaths()
+    {
+        List<string> paths;
+        lock (_pendingGate)
+        {
+            paths = new List<string>(_pendingPaths);
+            _pendingPaths.Clear();
+            _pendingTimer?.Dispose();
+            _pendingTimer = null;
+        }
+        if (paths.Count == 0) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (paths.Count == 1) OpenEditor(paths[0]);
+            else OpenBatch(paths);
+        });
+    }
+
+    // ---- windows --------------------------------------------------------------
 
     internal void OpenEditor(string path)
     {
@@ -97,7 +147,25 @@ public partial class App : Application
         window.Activate();
     }
 
-    // ---- search window ------------------------------------------------------------
+    internal void OpenBatch(IReadOnlyList<string> paths)
+    {
+        var window = new BatchWindow(paths);
+        window.Show();
+        window.Activate();
+    }
+
+    internal void ShowDropZone()
+    {
+        if (_dropZone is { IsLoaded: true })
+        {
+            _dropZone.Activate();
+            return;
+        }
+        _dropZone = new DropZoneWindow();
+        _dropZone.Closed += (_, _) => _dropZone = null;
+        _dropZone.Show();
+        _dropZone.Activate();
+    }
 
     internal void ShowSearchWindow()
     {
@@ -110,6 +178,32 @@ public partial class App : Application
         _searchWindow.Closed += (_, _) => _searchWindow = null;
         _searchWindow.Show();
         _searchWindow.Activate();
+    }
+
+    internal void ShowSettingsWindow()
+    {
+        if (_settingsWindow is { IsLoaded: true })
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+        _settingsWindow = new SettingsWindow();
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show();
+        _settingsWindow.Activate();
+    }
+
+    internal void ShowShortcutsWindow()
+    {
+        if (_shortcutsWindow is { IsLoaded: true })
+        {
+            _shortcutsWindow.Activate();
+            return;
+        }
+        _shortcutsWindow = new ShortcutsWindow();
+        _shortcutsWindow.Closed += (_, _) => _shortcutsWindow = null;
+        _shortcutsWindow.Show();
+        _shortcutsWindow.Activate();
     }
 
     // ---- hotkeys ---------------------------------------------------------------
@@ -125,18 +219,46 @@ public partial class App : Application
         };
         _hotkeys.HotkeyFailed += id =>
         {
-            string combo = id == HotkeyManager.IdOpenSelection ? "Ctrl+Alt+T" : "Ctrl+Alt+F";
+            var (open, search) = Settings.LoadHotkeys();
+            string combo = (id == HotkeyManager.IdOpenSelection ? open : search).ToString();
             _tray?.ShowBalloonTip(6000, "FileLore",
-                $"Hotkey {combo} is unavailable (another app owns it).", WinForms.ToolTipIcon.Warning);
+                $"Hotkey {combo} is unavailable (another app owns it) — keeping the previous binding.",
+                WinForms.ToolTipIcon.Warning);
         };
-        _hotkeys.Register();
+        var (openCombo, searchCombo) = Settings.LoadHotkeys();
+        _hotkeys.Register(openCombo, searchCombo);
     }
 
     /// <summary>
-    /// The Ctrl+Alt+T handler: open the editor for the current Explorer
-    /// selection; when nothing usable is selected, fall back to a file dialog.
-    /// Also exposed headlessly as <c>--hotkey-open-selection</c> so milestone
-    /// verification can drive it without physical key presses.
+    /// Applies new hotkey bindings live (Settings window Save). On success
+    /// the combos are persisted; on conflict the previous chords stay
+    /// registered (HotkeyManager rolls back) and the balloon explains it.
+    /// </summary>
+    internal bool ApplyHotkeys(HotkeyCombo openSelection, HotkeyCombo search)
+    {
+        if (_hotkeys is null) return false;
+        bool ok = _hotkeys.Reregister(openSelection, search);
+        if (ok)
+        {
+            Settings.SaveHotkeys(openSelection, search);
+            AppLog.Write($"hotkeys rebound: open={openSelection}, search={search}");
+        }
+        return ok;
+    }
+
+    internal void ResetHotkeysToDefaults()
+    {
+        if (_hotkeys is null) return;
+        if (_hotkeys.Reregister(HotkeyCombo.DefaultOpenSelection, HotkeyCombo.DefaultSearch))
+            Settings.SaveHotkeys(HotkeyCombo.DefaultOpenSelection, HotkeyCombo.DefaultSearch);
+    }
+
+    /// <summary>
+    /// The note-selection hotkey handler: open the editor for the current
+    /// Explorer selection; when nothing usable is selected, fall back to a
+    /// file dialog. Also exposed headlessly as
+    /// <c>--hotkey-open-selection</c> so milestone verification can drive it
+    /// without physical key presses.
     /// </summary>
     internal void OpenEditorForExplorerSelection()
     {
@@ -158,13 +280,7 @@ public partial class App : Application
         _trayIconImage = new System.Drawing.Icon(sri!.Stream);
 
         var menu = new WinForms.ContextMenuStrip();
-        menu.Items.Add("Attach note to file…", null, (_, _) => AttachFlow());
-        menu.Items.Add("Search notes…  Ctrl+Alt+F", null, (_, _) => ShowSearchWindow());
-        var recent = new WinForms.ToolStripMenuItem("Recent notes");
-        menu.Items.Add(recent);
-        menu.Items.Add(new WinForms.ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => ExitApp());
-        menu.Opening += (_, _) => RebuildRecentMenu(recent);
+        menu.Opening += (_, _) => RebuildTrayMenu(menu);
 
         _tray = new WinForms.NotifyIcon
         {
@@ -176,22 +292,114 @@ public partial class App : Application
         _tray.DoubleClick += (_, _) => AttachFlow();
     }
 
-    private void RebuildRecentMenu(WinForms.ToolStripMenuItem recent)
+    /// <summary>
+    /// Rebuilds the tray menu on every opening so hotkey labels, recent
+    /// notes and pinned tags always reflect the current settings.
+    /// </summary>
+    private void RebuildTrayMenu(WinForms.ContextMenuStrip menu)
     {
-        recent.DropDownItems.Clear();
+        menu.Items.Clear();
+        var (openCombo, searchCombo) = Settings.LoadHotkeys();
+
+        menu.Items.Add("Attach note to file…", null, (_, _) => AttachFlow());
+        menu.Items.Add("New note / batch…", null, (_, _) => ShowDropZone());
+        menu.Items.Add($"Search notes…  {searchCombo}", null, (_, _) => ShowSearchWindow());
+
+        // Recent notes
+        var recent = new WinForms.ToolStripMenuItem("Recent notes");
         var items = Recents.Load();
         if (items.Count == 0)
         {
             recent.DropDownItems.Add(new WinForms.ToolStripMenuItem("(no recent notes)") { Enabled = false });
+        }
+        else
+        {
+            foreach (var p in items)
+            {
+                string captured = p;
+                var item = new WinForms.ToolStripMenuItem(Path.GetFileName(p)) { ToolTipText = p };
+                item.Click += (_, _) => OpenEditor(captured);
+                recent.DropDownItems.Add(item);
+            }
+        }
+        menu.Items.Add(recent);
+
+        // Pinned tags: submenu per tag listing noted files (filled async).
+        var pinnedItem = new WinForms.ToolStripMenuItem("Pinned Tags");
+        BuildPinnedTagsMenu(pinnedItem);
+        menu.Items.Add(pinnedItem);
+
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("Settings…", null, (_, _) => ShowSettingsWindow());
+        menu.Items.Add("Keyboard Shortcuts…", null, (_, _) => ShowShortcutsWindow());
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("Exit", null, (_, _) => ExitApp());
+    }
+
+    private void BuildPinnedTagsMenu(WinForms.ToolStripMenuItem pinnedItem)
+    {
+        var pinned = Settings.LoadPinnedTags();
+        if (pinned.Count == 0)
+        {
+            pinnedItem.DropDownItems.Add(
+                new WinForms.ToolStripMenuItem("(pin tags from the search window)") { Enabled = false });
             return;
         }
-        foreach (var p in items)
+
+        foreach (string tag in pinned)
         {
-            string captured = p;
-            var item = new WinForms.ToolStripMenuItem(Path.GetFileName(p)) { ToolTipText = p };
-            item.Click += (_, _) => OpenEditor(captured);
-            recent.DropDownItems.Add(item);
+            var tagItem = new WinForms.ToolStripMenuItem("#" + tag);
+            tagItem.DropDownItems.Add(new WinForms.ToolStripMenuItem("scanning…") { Enabled = false });
+            pinnedItem.DropDownItems.Add(tagItem);
         }
+        pinnedItem.DropDownItems.Add(new WinForms.ToolStripSeparator());
+        pinnedItem.DropDownItems.Add("Search notes…", null, (_, _) => ShowSearchWindow());
+
+        // Fill each tag's noted-file list off the UI thread; the menu stays
+        // open and updates in place when the scan finishes.
+        var roots = Settings.LoadRoots();
+        Task.Run(() =>
+        {
+            var noted = new List<IndexedNote>();
+            try
+            {
+                NoteIndex.Scan(roots, noted.Add, onRootStarted: null, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Write("pinned-tags scan failed: " + ex.Message);
+                return;
+            }
+            Dispatcher.BeginInvoke(() =>
+            {
+                for (int i = 0; i < pinned.Count; i++)
+                {
+                    string tag = pinned[i];
+                    if (pinnedItem.DropDownItems[i] is not WinForms.ToolStripMenuItem tagItem) continue;
+                    tagItem.DropDownItems.Clear();
+                    var files = noted
+                        .Where(n => n.Note.Tags.Any(t => string.Equals(t, tag, StringComparison.OrdinalIgnoreCase)))
+                        .OrderByDescending(n => n.Note.Modified)
+                        .Take(10)
+                        .ToList();
+                    if (files.Count == 0)
+                    {
+                        tagItem.DropDownItems.Add(
+                            new WinForms.ToolStripMenuItem("(no noted files with this tag)") { Enabled = false });
+                    }
+                    else
+                    {
+                        foreach (var n in files)
+                        {
+                            string captured = n.Path;
+                            var item = new WinForms.ToolStripMenuItem(n.FileName) { ToolTipText = n.Path };
+                            item.Click += (_, _) => OpenEditor(captured);
+                            tagItem.DropDownItems.Add(item);
+                        }
+                    }
+                }
+            });
+        });
     }
 
     private void AttachFlow()
@@ -219,6 +427,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        InstanceMessenger.StopServer();
         _hotkeys?.Dispose();
         _trayIconImage?.Dispose();
         if (_ownsMutex)

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -152,14 +153,24 @@ public partial class SearchWindow : Window
             .ToList();
         _activeTags.RemoveWhere(t => !tags.Contains(t, StringComparer.OrdinalIgnoreCase));
 
-        ChipsPanel.Children.Clear();
-        foreach (string tag in tags)
+        var pinned = Settings.LoadPinnedTags();
+
+        // Pinned chips row on top (pin glyph, click to filter, right-click unpins).
+        PinnedChipsPanel.Children.Clear();
+        foreach (string tag in pinned.Where(t => tags.Contains(t, StringComparer.OrdinalIgnoreCase)))
         {
-            ChipsPanel.Children.Add(MakeChip(tag, _activeTags.Contains(tag), isTagChip: true));
+            PinnedChipsPanel.Children.Add(MakeChip(tag, _activeTags.Contains(tag), isPinned: true));
+        }
+
+        // Regular chips (right-click pins).
+        ChipsPanel.Children.Clear();
+        foreach (string tag in tags.Where(t => !pinned.Contains(t, StringComparer.OrdinalIgnoreCase)))
+        {
+            ChipsPanel.Children.Add(MakeChip(tag, _activeTags.Contains(tag), isPinned: false));
         }
     }
 
-    private Border MakeChip(string text, bool active, bool isTagChip)
+    private Border MakeChip(string text, bool active, bool isPinned)
     {
         var chip = new Border
         {
@@ -175,24 +186,69 @@ public partial class SearchWindow : Window
         };
         var label = new TextBlock
         {
-            Text = text,
+            Text = isPinned ? "📌 " + text : text,
             FontSize = 12,
             Foreground = new SolidColorBrush(active ? Colors.White : Color.FromRgb(0x44, 0x44, 0x44)),
         };
         chip.Child = label;
-        if (isTagChip)
+
+        chip.MouseLeftButtonUp += (_, _) =>
         {
-            chip.MouseLeftButtonUp += (_, _) =>
-            {
-                bool nowActive = _activeTags.Add(text) ? true : _activeTags.Remove(text) && false;
-                chip.Background = new SolidColorBrush(nowActive
-                    ? Color.FromRgb(0xEB, 0x96, 0x1E)
-                    : Color.FromRgb(0xFD, 0xF3, 0xE3));
-                label.Foreground = new SolidColorBrush(nowActive ? Colors.White : Color.FromRgb(0x44, 0x44, 0x44));
-                ApplyFilter();
-            };
-        }
+            bool nowActive = _activeTags.Add(text) ? true : _activeTags.Remove(text) && false;
+            chip.Background = new SolidColorBrush(nowActive
+                ? Color.FromRgb(0xEB, 0x96, 0x1E)
+                : Color.FromRgb(0xFD, 0xF3, 0xE3));
+            label.Foreground = new SolidColorBrush(nowActive ? Colors.White : Color.FromRgb(0x44, 0x44, 0x44));
+            ApplyFilter();
+        };
+
+        var menu = new ContextMenu();
+        var pinItem = new MenuItem { Header = isPinned ? $"Unpin “{text}”" : $"Pin “{text}”" };
+        pinItem.Click += (_, _) =>
+        {
+            if (isPinned) Settings.UnpinTag(text);
+            else Settings.PinTag(text);
+            RebuildTagChips();
+        };
+        menu.Items.Add(pinItem);
+        chip.ContextMenu = menu;
+
         return chip;
+    }
+
+    // ---- batch export --------------------------------------------------------------
+
+    private void Results_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => ExportBtn.IsEnabled = Results.SelectedItems.Count > 0;
+
+    private void Export_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = Results.SelectedItems.OfType<ResultRow>().ToList();
+        if (selected.Count == 0) return;
+
+        var items = selected
+            .Select(r => new MarkdownExporter.ExportItem(r.Source.Note, r.FileName, r.Path))
+            .ToList();
+        string markdown = MarkdownExporter.BatchMarkdown(items);
+
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export notes as Markdown",
+            FileName = $"filelore-export-{MarkdownExporter.ExportDateString()}.md",
+            Filter = "Markdown (*.md)|*.md|All files (*.*)|*.*",
+            DefaultExt = ".md",
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            File.WriteAllText(dlg.FileName, markdown);
+            StatusText.Text = $"Exported {items.Count} note(s) → {dlg.FileName}";
+            Process.Start("explorer.exe", $"/select,\"{dlg.FileName}\""); // reveal in Explorer
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Export failed: " + ex.Message;
+        }
     }
 
     // ---- search roots --------------------------------------------------------------

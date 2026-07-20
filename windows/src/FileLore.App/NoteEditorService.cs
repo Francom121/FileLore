@@ -12,6 +12,16 @@ namespace FileLore.App;
 public static class NoteEditorService
 {
     public static Note Save(string path, string body, IEnumerable<string> tags)
+        => Save(path, body, tags, links: null);
+
+    /// <summary>
+    /// Create-or-update the note on <paramref name="path"/>. When
+    /// <paramref name="links"/> is null the existing
+    /// <see cref="Note.Links"/> are preserved untouched (body/tags-only
+    /// edits never drop linked files); otherwise the list replaces the
+    /// stored links.
+    /// </summary>
+    public static Note Save(string path, string body, IEnumerable<string> tags, IReadOnlyList<LinkedFile>? links)
     {
         // Unsupported locations (network shares, non-NTFS volumes) get a
         // friendly, raw-path-free message instead of the OS syntax error
@@ -30,6 +40,8 @@ public static class NoteEditorService
             .Where(t => t.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        if (links is not null)
+            note.Links = links.ToList();
 
         NoteStore.Write(path, note);
         Recents.Add(path);

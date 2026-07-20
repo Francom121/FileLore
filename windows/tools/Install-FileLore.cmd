@@ -72,6 +72,12 @@ start "" "%EXE%" --tray
 echo.
 echo   Done! Try it: right-click any file -^> Show more options -^> FileLore Note.
 echo   Hotkeys: Ctrl+Alt+T = note for selected file, Ctrl+Alt+F = search notes.
+echo.
+echo   NOTE: the FIRST launch can take up to a minute (one-time
+echo         self-extraction + Windows scan). Later launches are fast.
+echo.
+echo   Updating from an older version? You're already done - this script
+echo   replaced the old app; your notes and settings were kept.
 echo   To remove FileLore later, run Uninstall-FileLore.cmd
 echo.
 if "%QUIET%"=="0" pause

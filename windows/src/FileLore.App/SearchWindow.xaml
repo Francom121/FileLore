@@ -41,6 +41,7 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
@@ -55,12 +56,17 @@
       </Grid>
     </Border>
 
-    <!-- Tag chip filter row -->
-    <WrapPanel Grid.Row="1" x:Name="ChipsPanel" Margin="2,10,0,0"/>
+    <!-- Pinned tag chips (pin glyph; click filters; right-click unpins) -->
+    <WrapPanel Grid.Row="1" x:Name="PinnedChipsPanel" Margin="2,10,0,0"/>
+
+    <!-- Tag chip filter row (right-click pins) -->
+    <WrapPanel Grid.Row="2" x:Name="ChipsPanel" Margin="2,0,0,0"/>
 
     <!-- Search roots + actions -->
-    <DockPanel Grid.Row="2" Margin="0,10,0,0">
+    <DockPanel Grid.Row="3" Margin="0,10,0,0">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button x:Name="ExportBtn" Content="Export…" Style="{StaticResource GhostBtn}" Click="Export_Click" Margin="6,0,0,0"
+                ToolTip="Export the selected notes as one Markdown document" IsEnabled="False"/>
         <Button Content="Add folder…" Style="{StaticResource GhostBtn}" Click="AddFolder_Click" Margin="6,0,0,0"/>
         <Button Content="Refresh" Style="{StaticResource GhostBtn}" Click="Refresh_Click" Margin="6,0,0,0"/>
       </StackPanel>
@@ -68,12 +74,13 @@
     </DockPanel>
 
     <!-- Indexing status -->
-    <TextBlock Grid.Row="3" x:Name="StatusText" Margin="2,10,0,6" FontSize="12" Foreground="#8A8A84"/>
+    <TextBlock Grid.Row="4" x:Name="StatusText" Margin="2,10,0,6" FontSize="12" Foreground="#8A8A84"/>
 
     <!-- Results -->
-    <Border Grid.Row="4" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1">
+    <Border Grid.Row="5" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1">
       <ListBox x:Name="Results" BorderThickness="0" Background="Transparent"
                MouseDoubleClick="Results_MouseDoubleClick" KeyDown="Results_KeyDown"
+               SelectionMode="Extended" SelectionChanged="Results_SelectionChanged"
                ScrollViewer.HorizontalScrollBarVisibility="Disabled">
         <ListBox.ItemTemplate>
           <DataTemplate>
@@ -116,7 +123,7 @@
       </ListBox>
     </Border>
 
-    <TextBlock Grid.Row="5" Margin="2,8,0,0" FontSize="11.5" Foreground="#B0B0A8"
-               Text="Double-click a result to edit its note · Ctrl+Alt+T notes the Explorer selection"/>
+    <TextBlock Grid.Row="6" Margin="2,8,0,0" FontSize="11.5" Foreground="#B0B0A8"
+               Text="Double-click to edit · Ctrl/Shift-click to multi-select, then Export… · right-click a chip to pin it"/>
   </Grid>
 </Window>

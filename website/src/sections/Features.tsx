@@ -3,6 +3,7 @@ import {
   FileDown,
   Keyboard,
   LayoutTemplate,
+  Monitor,
   Paperclip,
   Pin,
   Play,
@@ -41,7 +42,7 @@ const features = [
   {
     icon: Feather,
     title: "Finder badge",
-    body: "An amber quill marks noted files right in Finder.",
+    body: "An amber quill marks noted files right in Finder. (macOS only — everything else in this grid runs on Windows too.)",
   },
   {
     icon: FileDown,
@@ -62,6 +63,11 @@ const features = [
     icon: Keyboard,
     title: "Customizable global hotkeys",
     body: "\u2325T to note, \u21E7\u2318F to search — rebind to whatever fits your hands.",
+  },
+  {
+    icon: Monitor,
+    title: "Full Windows parity",
+    body: "Windows 10/11 x64 ships the same editor: right-click and batch notes, media peek, linked files, pinned tags, templates, Markdown export.",
   },
 ]
 

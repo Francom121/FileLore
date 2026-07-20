@@ -34,7 +34,7 @@ const windowsSteps = [
   {
     icon: ShieldCheck,
     title: "Run Install-FileLore.cmd",
-    body: "Double-click it — no admin needed. If SmartScreen appears: More info → Run anyway.",
+    body: "Double-click it — no admin needed. If SmartScreen appears: More info → Run anyway. First launch can take up to a minute (one-time extraction); later launches are fast.",
   },
   {
     icon: MousePointerClick,

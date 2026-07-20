@@ -44,6 +44,28 @@ public sealed class LinkedFile
 
     [JsonPropertyName("relativePathHint")]
     public string RelativePathHint { get; set; } = "";
+
+    // ---- Windows-only additions -------------------------------------------
+    // The Mac app's Swift Codable decoder ignores unknown JSON keys, so these
+    // extra fields keep the payload fully readable by macOS. Never rename or
+    // remove the keys above.
+
+    /// <summary>
+    /// Absolute path of the link target at the time it was added. This is the
+    /// primary resolution key on Windows (NTFS has no security-scoped
+    /// bookmarks). May be absent on notes written by the Mac app.
+    /// </summary>
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    /// <summary>File size in bytes when the link was added; 0 when unknown.</summary>
+    [JsonPropertyName("size")]
+    public long Size { get; set; }
+
+    /// <summary>When the link was added (Apple-reference-date seconds, like created/modified).</summary>
+    [JsonPropertyName("added")]
+    [JsonConverter(typeof(AppleReferenceDateJsonConverter))]
+    public DateTime Added { get; set; } = DateTime.UtcNow;
 }
 
 /// <summary>
