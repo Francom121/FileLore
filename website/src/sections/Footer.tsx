@@ -10,7 +10,7 @@ export default function Footer() {
           />
           <span>© 2026 FileLore</span>
         </div>
-        <p>Windows version in the works.</p>
+        <p>Now available for macOS and Windows.</p>
       </div>
     </footer>
   )

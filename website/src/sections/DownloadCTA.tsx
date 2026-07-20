@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button"
-import { DOWNLOAD_SIZE, DOWNLOAD_URL } from "@/config"
-import { Download, FolderDown, MousePointerClick, ShieldCheck, PanelTop } from "lucide-react"
+import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_URL, DOWNLOAD_URL_WINDOWS } from "@/config"
+import { Download, FolderDown, MousePointerClick, ShieldCheck, PanelTop, Trash2 } from "lucide-react"
 
-const steps = [
+const macSteps = [
   {
     icon: FolderDown,
     title: "Drag to Applications",
@@ -25,6 +25,55 @@ const steps = [
   },
 ]
 
+const windowsSteps = [
+  {
+    icon: FolderDown,
+    title: "Unzip the download",
+    body: "Extract FileLore-Windows-x64.zip anywhere — Downloads is fine.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Run Install-FileLore.cmd",
+    body: "Double-click it — no admin needed. If SmartScreen appears: More info → Run anyway.",
+  },
+  {
+    icon: MousePointerClick,
+    title: "Right-click any file",
+    body: "Show more options → FileLore Note. Hotkeys: Ctrl+Alt+T new note, Ctrl+Alt+F search.",
+  },
+  {
+    icon: Trash2,
+    title: "Uninstall anytime",
+    body: "Run the included Uninstall-FileLore.cmd — it removes the app and keeps your notes.",
+  },
+]
+
+function StepList({ steps }: { steps: typeof macSteps }) {
+  return (
+    <ol className="mt-5 grid gap-4 sm:grid-cols-2">
+      {steps.map((step, i) => (
+        <li
+          key={step.title}
+          className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-fl-500/15 text-fl-300">
+            <step.icon className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[15px] font-semibold text-white">
+              <span className="mr-1.5 text-white/40">{i + 1}.</span>
+              {step.title}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-white/60">
+              {step.body}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 export default function DownloadCTA() {
   return (
     <section id="download" className="scroll-mt-20 bg-ink text-white">
@@ -45,7 +94,7 @@ export default function DownloadCTA() {
           Notes that stay with your files — through renames, moves, and
           everything else.
         </p>
-        <div className="relative mt-9">
+        <div className="relative mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button
             asChild
             size="lg"
@@ -56,37 +105,37 @@ export default function DownloadCTA() {
               Download for Mac
             </a>
           </Button>
-          <p className="mt-4 text-[13px] text-white/45">
-            Free · {DOWNLOAD_SIZE} zip · macOS 26 or later
-          </p>
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="h-12 border-white/20 bg-transparent px-8 text-base font-semibold text-white/85 hover:bg-white/10 hover:text-white"
+          >
+            <a href={DOWNLOAD_URL_WINDOWS} download>
+              <Download className="mr-2 h-5 w-5" />
+              Download for Windows (x64)
+            </a>
+          </Button>
         </div>
+        <p className="relative mt-4 text-[13px] text-white/45">
+          Free · Mac {DOWNLOAD_SIZE} zip · macOS 26 or later
+          <span className="mx-2 text-white/25">|</span>
+          Windows {DOWNLOAD_SIZE_WINDOWS} zip · Windows 10/11 x64
+        </p>
 
         {/* How to install */}
         <div className="relative mx-auto mt-16 max-w-4xl text-left">
           <h3 className="text-center text-sm font-semibold uppercase tracking-[0.14em] text-fl-300">
             How to install
           </h3>
-          <ol className="mt-8 grid gap-4 sm:grid-cols-2">
-            {steps.map((step, i) => (
-              <li
-                key={step.title}
-                className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-fl-500/15 text-fl-300">
-                  <step.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-[15px] font-semibold text-white">
-                    <span className="mr-1.5 text-white/40">{i + 1}.</span>
-                    {step.title}
-                  </p>
-                  <p className="mt-1 text-sm leading-relaxed text-white/60">
-                    {step.body}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <p className="mt-8 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/40">
+            On macOS
+          </p>
+          <StepList steps={macSteps} />
+          <p className="mt-10 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/40">
+            On Windows
+          </p>
+          <StepList steps={windowsSteps} />
         </div>
       </div>
     </section>

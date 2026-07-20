@@ -8,6 +8,12 @@ export const DOWNLOAD_URL = "/downloads/FileLore-macOS.zip"
 /** Human-readable size of the download zip, shown next to download buttons. */
 export const DOWNLOAD_SIZE = "3.3 MB"
 
+/** Direct download for the latest Windows (x64) release (served from /public). */
+export const DOWNLOAD_URL_WINDOWS = "/downloads/FileLore-Windows-x64.zip"
+
+/** Human-readable size of the Windows download zip. */
+export const DOWNLOAD_SIZE_WINDOWS = "62.8 MB"
+
 /**
  * ☕ Donate link for the "Support FileLore" section.
  *
