@@ -1,0 +1,122 @@
+<Window x:Class="FileLore.App.SearchWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="680" Height="600" MinWidth="520" MinHeight="440"
+        WindowStartupLocation="CenterScreen"
+        Background="#FAFAF8" FontFamily="Segoe UI" FontSize="13"
+        Title="Search notes — FileLore">
+  <Window.Resources>
+    <Style x:Key="BaseButton" TargetType="Button">
+      <Setter Property="Padding" Value="12,6"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="7" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="GhostBtn" TargetType="Button" BasedOn="{StaticResource BaseButton}">
+      <Setter Property="Background" Value="White"/>
+      <Setter Property="Foreground" Value="#444444"/>
+      <Setter Property="BorderBrush" Value="#DDDDD6"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+  </Window.Resources>
+
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- Search box -->
+    <Border Grid.Row="0" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1" Padding="4,2">
+      <Grid>
+        <TextBlock x:Name="SearchHint" Text="Search note text, file names, tags…" Foreground="#BDBDB4"
+                   Margin="10,8,0,0" IsHitTestVisible="False"/>
+        <TextBox x:Name="SearchBox" BorderThickness="0" Background="Transparent" Padding="8,6"
+                 FontSize="14" TextChanged="SearchBox_TextChanged" KeyDown="SearchBox_KeyDown"/>
+      </Grid>
+    </Border>
+
+    <!-- Tag chip filter row -->
+    <WrapPanel Grid.Row="1" x:Name="ChipsPanel" Margin="2,10,0,0"/>
+
+    <!-- Search roots + actions -->
+    <DockPanel Grid.Row="2" Margin="0,10,0,0">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button Content="Add folder…" Style="{StaticResource GhostBtn}" Click="AddFolder_Click" Margin="6,0,0,0"/>
+        <Button Content="Refresh" Style="{StaticResource GhostBtn}" Click="Refresh_Click" Margin="6,0,0,0"/>
+      </StackPanel>
+      <WrapPanel x:Name="RootsPanel" VerticalAlignment="Center"/>
+    </DockPanel>
+
+    <!-- Indexing status -->
+    <TextBlock Grid.Row="3" x:Name="StatusText" Margin="2,10,0,6" FontSize="12" Foreground="#8A8A84"/>
+
+    <!-- Results -->
+    <Border Grid.Row="4" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1">
+      <ListBox x:Name="Results" BorderThickness="0" Background="Transparent"
+               MouseDoubleClick="Results_MouseDoubleClick" KeyDown="Results_KeyDown"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Border Padding="12,9" Margin="8,6" CornerRadius="8" Background="#FAFAF8"
+                    BorderBrush="#EFEFEA" BorderThickness="1" MaxWidth="600">
+              <StackPanel>
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding NotedLabel}" Foreground="#8A8A84"
+                             FontSize="11" VerticalAlignment="Top" Margin="10,2,0,0"/>
+                  <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" FontSize="13.5"
+                             TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+                <TextBlock Text="{Binding Folder}" Foreground="#8A8A84" FontSize="11.5"
+                           TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                <TextBlock Text="{Binding Snippet}" Foreground="#555550" FontSize="12.5"
+                           TextWrapping="Wrap" Margin="0,5,0,0"/>
+                <ItemsControl ItemsSource="{Binding Tags}" Margin="0,6,0,0">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="#FDF3E3" BorderBrush="#EB961E" BorderThickness="1"
+                              CornerRadius="9" Padding="7,2" Margin="0,0,5,3">
+                        <TextBlock Text="{Binding}" FontSize="11"/>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="0"/>
+          </Style>
+        </ListBox.ItemContainerStyle>
+      </ListBox>
+    </Border>
+
+    <TextBlock Grid.Row="5" Margin="2,8,0,0" FontSize="11.5" Foreground="#B0B0A8"
+               Text="Double-click a result to edit its note · Ctrl+Alt+T notes the Explorer selection"/>
+  </Grid>
+</Window>

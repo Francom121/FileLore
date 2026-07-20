@@ -9,10 +9,17 @@ namespace FileLore.App;
 /// Entry point and tray host.
 ///
 /// Instance model: a plain (session-local) mutex marks the first instance,
-/// which owns the tray icon and lives until Exit. A later instance launched
-/// with a file path (e.g. a second Explorer right-click) opens its own
-/// editor window and exits when that window closes — two editors for two
-/// files are fine, two tray icons are not.
+/// which owns the tray icon, the global hotkeys and the search window, and
+/// lives until Exit. A later instance launched with a file path (e.g. a
+/// second Explorer right-click) opens its own editor window and exits when
+/// that window closes — two editors for two files are fine, two tray icons
+/// are not.
+///
+/// Command line:
+///   FileLore.exe [path]            open the editor for path (or start tray)
+///   FileLore.exe --tray            start tray-only, no balloon (autostart)
+///   FileLore.exe --hotkey-open-selection   dev hook: run the Ctrl+Alt+T handler
+///   FileLore.exe --selftest …      headless verification (see SelfTest)
 /// </summary>
 public partial class App : Application
 {
@@ -20,6 +27,8 @@ public partial class App : Application
     private bool _ownsMutex;
     private WinForms.NotifyIcon? _tray;
     private System.Drawing.Icon? _trayIconImage;
+    private HotkeyManager? _hotkeys;
+    private SearchWindow? _searchWindow;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -27,6 +36,7 @@ public partial class App : Application
 
         // Headless test hook used by the milestone verification harness:
         //   FileLore.exe --selftest <resultFile> <targetPath> <body> <tagsCsv>
+        //   FileLore.exe --selftest search <resultFile>
         if (e.Args.Length >= 1 && e.Args[0] == "--selftest")
         {
             int code = SelfTest.Run(e.Args);
@@ -34,7 +44,16 @@ public partial class App : Application
             return;
         }
 
-        string? path = e.Args.Length >= 1 ? e.Args[0] : null;
+        // Dev hook: run the exact Ctrl+Alt+T handler without physical keys.
+        if (e.Args.Length >= 1 && e.Args[0] == "--hotkey-open-selection")
+        {
+            ShutdownMode = ShutdownMode.OnLastWindowClose;
+            OpenEditorForExplorerSelection();
+            return;
+        }
+
+        bool trayOnly = e.Args.Contains("--tray");
+        string? path = e.Args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
 
         _mutex = new Mutex(initiallyOwned: true, name: "FileLore.SingleInstance", out bool firstInstance);
         _ownsMutex = firstInstance;
@@ -43,11 +62,12 @@ public partial class App : Application
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown; // tray keeps app alive
             SetupTray();
+            SetupHotkeys();
             if (path is not null)
             {
                 OpenEditor(path);
             }
-            else
+            else if (!trayOnly)
             {
                 _tray!.ShowBalloonTip(6000, "FileLore",
                     "FileLore is running — right-click any file to attach a note.",
@@ -76,6 +96,61 @@ public partial class App : Application
         window.Activate();
     }
 
+    // ---- search window ------------------------------------------------------------
+
+    internal void ShowSearchWindow()
+    {
+        if (_searchWindow is { IsLoaded: true })
+        {
+            _searchWindow.Activate(); // raise the existing window
+            return;
+        }
+        _searchWindow = new SearchWindow();
+        _searchWindow.Closed += (_, _) => _searchWindow = null;
+        _searchWindow.Show();
+        _searchWindow.Activate();
+    }
+
+    // ---- hotkeys ---------------------------------------------------------------
+
+    private void SetupHotkeys()
+    {
+        _hotkeys = new HotkeyManager();
+        _hotkeys.HotkeyPressed += id =>
+        {
+            AppLog.Write($"hotkey pressed: id {id}");
+            if (id == HotkeyManager.IdOpenSelection) OpenEditorForExplorerSelection();
+            else if (id == HotkeyManager.IdSearch) ShowSearchWindow();
+        };
+        _hotkeys.HotkeyFailed += id =>
+        {
+            string combo = id == HotkeyManager.IdOpenSelection ? "Ctrl+Alt+T" : "Ctrl+Alt+F";
+            _tray?.ShowBalloonTip(6000, "FileLore",
+                $"Hotkey {combo} is unavailable (another app owns it).", WinForms.ToolTipIcon.Warning);
+        };
+        _hotkeys.Register();
+    }
+
+    /// <summary>
+    /// The Ctrl+Alt+T handler: open the editor for the current Explorer
+    /// selection; when nothing usable is selected, fall back to a file dialog.
+    /// Also exposed headlessly as <c>--hotkey-open-selection</c> so milestone
+    /// verification can drive it without physical key presses.
+    /// </summary>
+    internal void OpenEditorForExplorerSelection()
+    {
+        string? selected = ExplorerSelection.TryGet();
+        AppLog.Write("hotkey open-selection: " + (selected ?? "(no Explorer selection — file dialog)"));
+        if (selected is not null)
+        {
+            OpenEditor(selected);
+            return;
+        }
+        AttachFlow();
+    }
+
+    // ---- tray ---------------------------------------------------------------
+
     private void SetupTray()
     {
         var sri = GetResourceStream(new Uri("pack://application:,,,/Resources/app.ico"));
@@ -83,6 +158,7 @@ public partial class App : Application
 
         var menu = new WinForms.ContextMenuStrip();
         menu.Items.Add("Attach note to file…", null, (_, _) => AttachFlow());
+        menu.Items.Add("Search notes…  Ctrl+Alt+F", null, (_, _) => ShowSearchWindow());
         var recent = new WinForms.ToolStripMenuItem("Recent notes");
         menu.Items.Add(recent);
         menu.Items.Add(new WinForms.ToolStripSeparator());
@@ -142,6 +218,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _hotkeys?.Dispose();
         _trayIconImage?.Dispose();
         if (_ownsMutex)
         {
