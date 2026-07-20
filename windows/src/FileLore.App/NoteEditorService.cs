@@ -13,6 +13,12 @@ public static class NoteEditorService
 {
     public static Note Save(string path, string body, IEnumerable<string> tags)
     {
+        // Unsupported locations (network shares, non-NTFS volumes) get a
+        // friendly, raw-path-free message instead of the OS syntax error
+        // that names the hidden "<path>:filelore.note" stream.
+        if (NoteStore.IsSupportedPath(path) is (false, var reason))
+            throw new InvalidOperationException(reason + " " + NoteStore.LocalDriveGuidance);
+
         Note? existing = null;
         try { existing = NoteStore.Read(path); }
         catch { /* unreadable envelope → start fresh, mirroring the Mac store's forgiving read */ }

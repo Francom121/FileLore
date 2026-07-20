@@ -37,6 +37,7 @@ public partial class App : Application
         // Headless test hook used by the milestone verification harness:
         //   FileLore.exe --selftest <resultFile> <targetPath> <body> <tagsCsv>
         //   FileLore.exe --selftest search <resultFile>
+        //   FileLore.exe --selftest netpath <resultFile>
         if (e.Args.Length >= 1 && e.Args[0] == "--selftest")
         {
             int code = SelfTest.Run(e.Args);

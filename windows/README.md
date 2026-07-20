@@ -22,6 +22,18 @@ app.
   notes, search, and Exit.
 - **Keyboard in the editor:** Ctrl+S saves; Enter adds a tag.
 
+## Where notes work
+
+- **Local NTFS drives (C:, D:, …): yes.** That's every normal Windows PC,
+  so notes just work for files on the PC's own drives.
+- **Network shares and mapped network drives: no.** Notes live in an NTFS
+  alternate data stream, which only NTFS volumes can store — so files on
+  NAS boxes, `\\server\share` paths and VM shared folders (e.g. Parallels
+  `\\Mac\Home`) can't hold notes. FileLore tells you this in the editor and
+  skips network folders when searching, instead of failing. Move or copy
+  the file to a local folder and note it there.
+- **FAT32/exFAT USB sticks: no**, for the same reason.
+
 ## Good to know
 
 - Notes survive rename and move **on the same NTFS drive**. Copying to
@@ -41,8 +53,9 @@ app.
 - Core note store (ADS read/write, JSON envelope compatible with macOS):
   `src/FileLore.Core/`
 - WPF app (editor, search window, tray, hotkeys): `src/FileLore.App/`
-- Headless verification: `FileLore.exe --selftest <resultFile> <path> <body> <tagsCsv>`
-  and `FileLore.exe --selftest search <resultFile>`
+- Headless verification: `FileLore.exe --selftest <resultFile> <path> <body> <tagsCsv>`,
+  `FileLore.exe --selftest search <resultFile>` and
+  `FileLore.exe --selftest netpath <resultFile>` (unsupported-location guard)
 - Dev hook for the Ctrl+Alt+T handler: `FileLore.exe --hotkey-open-selection`
 - Explorer verb + shortcuts: `tools/install-context-menu.cmd`,
   `tools/install-shortcuts.ps1`

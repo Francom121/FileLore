@@ -51,6 +51,7 @@
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
@@ -69,10 +70,20 @@
       </StackPanel>
     </Border>
 
-    <TextBlock Grid.Row="1" Text="Note" Foreground="#8A8A84" FontSize="12" FontWeight="SemiBold" Margin="2,14,0,6"/>
+    <!-- Unsupported-location banner (network shares, non-NTFS volumes) -->
+    <Border Grid.Row="1" x:Name="UnsupportedBanner" Visibility="Collapsed" Margin="0,10,0,0"
+            Padding="12,10" CornerRadius="10" Background="#FDF3E3" BorderBrush="#EB961E" BorderThickness="1">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="⚠" FontSize="14" Foreground="#B07417" VerticalAlignment="Top" Margin="0,1,0,0"/>
+        <TextBlock x:Name="UnsupportedText" TextWrapping="Wrap" FontSize="12.5" Foreground="#7A5410"
+                   Margin="8,0,0,0" Width="440"/>
+      </StackPanel>
+    </Border>
+
+    <TextBlock Grid.Row="2" Text="Note" Foreground="#8A8A84" FontSize="12" FontWeight="SemiBold" Margin="2,14,0,6"/>
 
     <!-- Note body -->
-    <Border Grid.Row="2" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1">
+    <Border Grid.Row="3" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1">
       <Grid>
         <TextBlock x:Name="BodyHint" Text="Write a note about this file…" Foreground="#BDBDB4"
                    Margin="14,13,0,0" IsHitTestVisible="False"/>
@@ -82,10 +93,10 @@
       </Grid>
     </Border>
 
-    <TextBlock Grid.Row="3" Text="Tags" Foreground="#8A8A84" FontSize="12" FontWeight="SemiBold" Margin="2,12,0,6"/>
+    <TextBlock Grid.Row="4" Text="Tags" Foreground="#8A8A84" FontSize="12" FontWeight="SemiBold" Margin="2,12,0,6"/>
 
     <!-- Tag pills + entry -->
-    <Border Grid.Row="4" Padding="10,8,10,4" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1">
+    <Border Grid.Row="5" Padding="10,8,10,4" CornerRadius="10" Background="White" BorderBrush="#ECECE6" BorderThickness="1">
       <StackPanel>
         <WrapPanel x:Name="PillsPanel"/>
         <Grid Margin="0,2,0,4">
@@ -98,13 +109,13 @@
     </Border>
 
     <!-- Actions -->
-    <WrapPanel Grid.Row="5" Margin="0,16,0,0" Orientation="Horizontal">
+    <WrapPanel Grid.Row="6" Margin="0,16,0,0" Orientation="Horizontal">
       <Button x:Name="SaveBtn" Content="Save Note" Style="{StaticResource AccentBtn}" Click="Save_Click" Margin="0,0,8,8"/>
       <Button x:Name="DeleteBtn" Content="Delete Note" Style="{StaticResource DangerBtn}" Visibility="Collapsed" Click="Delete_Click" Margin="0,0,8,8"/>
       <Button Content="Copy" Style="{StaticResource GhostBtn}" Click="Copy_Click" Margin="0,0,8,8"/>
       <Button Content="Open File Location" Style="{StaticResource GhostBtn}" Click="OpenLocation_Click" Margin="0,0,8,8"/>
     </WrapPanel>
 
-    <TextBlock Grid.Row="6" x:Name="StatusText" Margin="2,2,0,0" FontSize="12" Foreground="#2E7D32"/>
+    <TextBlock Grid.Row="7" x:Name="StatusText" Margin="2,2,0,0" FontSize="12" Foreground="#2E7D32"/>
   </Grid>
 </Window>

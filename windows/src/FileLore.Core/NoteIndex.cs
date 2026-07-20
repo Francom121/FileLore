@@ -40,19 +40,34 @@ public static class NoteIndex
     /// <summary>
     /// Scans <paramref name="roots"/> and reports each noted file as it is
     /// found. <paramref name="onRootStarted"/> fires once per existing root
-    /// (for status lines like "Scanning C:\FileLoreTest…"). Returns the
-    /// total number of notes found. Inaccessible subtrees are skipped.
+    /// (for status lines like "Scanning C:\FileLoreTest…"). Roots where notes
+    /// cannot exist (network shares, non-NTFS volumes — see
+    /// <see cref="NoteStore.IsSupportedPath"/>) are skipped up front via
+    /// <paramref name="onRootSkipped"/> with a friendly status line, so a UNC
+    /// root never stalls the scan on network timeouts. Returns the total
+    /// number of notes found. Inaccessible subtrees are skipped.
     /// </summary>
     public static int Scan(
         IReadOnlyList<string> roots,
         Action<IndexedNote> onNote,
         Action<string>? onRootStarted = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action<string>? onRootSkipped = null)
     {
         int found = 0;
         foreach (string root in roots)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (NoteStore.IsNetworkPath(root))
+            {
+                onRootSkipped?.Invoke($"Skipped network folder {root} — notes can't live there");
+                continue;
+            }
+            if (NoteStore.IsSupportedPath(root) is (false, var reason))
+            {
+                onRootSkipped?.Invoke($"Skipped {root} — {reason}");
+                continue;
+            }
             if (!Directory.Exists(root)) continue;
             onRootStarted?.Invoke(root);
             found += ScanRoot(root, onNote, cancellationToken);

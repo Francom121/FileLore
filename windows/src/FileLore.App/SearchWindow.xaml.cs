@@ -69,6 +69,7 @@ public partial class SearchWindow : Window
 
         int found = 0;
         string currentRoot = roots[0];
+        var skippedRoots = new List<string>();
         StatusText.Text = $"Scanning {currentRoot}…";
 
         Task.Run(() =>
@@ -88,14 +89,20 @@ public partial class SearchWindow : Window
                         });
                     },
                     onRootStarted: root => Dispatcher.BeginInvoke(() => currentRoot = root),
-                    cancellationToken: ct);
+                    cancellationToken: ct,
+                    onRootSkipped: message => Dispatcher.BeginInvoke(() =>
+                    {
+                        skippedRoots.Add(message);
+                        StatusText.Text = message;
+                    }));
 
                 Dispatcher.BeginInvoke(() =>
                 {
                     RebuildTagChips();
                     ApplyFilter();
                     StatusText.Text = $"{_all.Count} note(s) indexed across {roots.Count} folder(s) — "
-                        + (_all.Count == 0 ? "attach a note and hit Refresh." : "type to search, click chips to filter.");
+                        + (_all.Count == 0 ? "attach a note and hit Refresh." : "type to search, click chips to filter.")
+                        + (skippedRoots.Count > 0 ? "  ·  " + string.Join("  ·  ", skippedRoots) : "");
                 });
             }
             catch (OperationCanceledException) { /* superseded by a newer scan */ }

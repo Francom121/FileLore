@@ -49,6 +49,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Network shares / non-NTFS volumes can't carry the ADS note stream.
+        // Show a friendly banner and disable note editing instead of letting
+        // the user hit the raw OS error that names "<path>:filelore.note".
+        if (NoteStore.IsSupportedPath(_path) is (false, var unsupportedReason))
+        {
+            UnsupportedText.Text = unsupportedReason + " " + NoteStore.LocalDriveGuidance;
+            UnsupportedBanner.Visibility = Visibility.Visible;
+            SaveBtn.IsEnabled = false;
+            DeleteBtn.Visibility = Visibility.Collapsed;
+            BodyBox.IsReadOnly = true;
+            TagInput.IsEnabled = false;
+            SetStatus("Notes can't be stored at this location.", neutral: true);
+            UpdateHints();
+            return;
+        }
+
         Note? note = null;
         try { note = NoteStore.Read(_path); }
         catch (Exception ex) { SetStatus("Could not read existing note: " + ex.Message, error: true); }

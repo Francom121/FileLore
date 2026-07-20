@@ -15,6 +15,12 @@ namespace FileLore.App;
 ///     — builds a fixture tree under C:\FileLoreTest\sidx, then exercises
 ///     NoteIndex.Scan and NoteSearch.Matches exactly as the search window
 ///     does (enumeration, skips, text search, tag-chip filters).
+///   FileLore.exe --selftest netpath &lt;resultFile&gt;
+///     — exercises the unsupported-location guard: a UNC path
+///     (\\Mac\Home\Downloads, reachable from the VM via Parallels Shared
+///     Folders) must be detected as unsupported, fail saves with the
+///     friendly message (never the raw ADS path), and be skipped as a
+///     search root; a normal NTFS path must stay supported and writable.
 ///
 /// Writes human-readable PASS/FAIL lines to &lt;resultFile&gt; (the app is a
 /// GUI-subsystem binary, so console output is not reliable). Exit code 0 =
@@ -28,7 +34,101 @@ internal static class SelfTest
     {
         if (args.Length >= 2 && args[1] == "search")
             return RunSearch(args[2]);
+        if (args.Length >= 2 && args[1] == "netpath")
+            return RunNetPath(args[2]);
         return RunSavePath(args);
+    }
+
+    /// <summary>
+    /// Unsupported-location guard self-test. Uses a real UNC path
+    /// (\\Mac\Home\Downloads — Parallels Shared Folders, reachable in the VM)
+    /// and asserts: the location check flags it with the network reason,
+    /// saving there surfaces the friendly message without ever naming the
+    /// raw ":filelore.note" stream path, a UNC search root is skipped
+    /// gracefully, and a normal NTFS path is unaffected.
+    /// </summary>
+    private static int RunNetPath(string resultFile)
+    {
+        var lines = new List<string>();
+        int failures = 0;
+        void Pass(string s) => lines.Add("PASS: " + s);
+        void Fail(string s) { lines.Add("FAIL: " + s); failures++; }
+
+        const string netFile = @"\\Mac\Home\Downloads\__fl_nettest.tmp";
+        const string netRoot = @"\\Mac\Home\Downloads";
+        const string localFile = @"C:\FileLoreTest\ok.tmp";
+
+        try
+        {
+            File.WriteAllText(netFile, "netpath selftest fixture");
+            Directory.CreateDirectory(Path.GetDirectoryName(localFile)!);
+            File.WriteAllText(localFile, "ntfs selftest fixture");
+
+            // 1) UNC path detected unsupported, with the network reason
+            var (netOk, netReason) = NoteStore.IsSupportedPath(netFile);
+            if (!netOk && netReason.Contains("network or shared folder", StringComparison.OrdinalIgnoreCase))
+                Pass($"UNC path detected unsupported: \"{netReason}\"");
+            else
+                Fail($"UNC path check returned ok={netOk}, reason=\"{netReason}\"");
+
+            // 2) save on the UNC path fails friendly: no exception escapes
+            //    uncaught by callers, and the message never leaks the raw
+            //    "<path>:filelore.note" ADS path or the OS syntax error
+            try
+            {
+                NoteEditorService.Save(netFile, "must not persist", Array.Empty<string>());
+                Fail("save on a network path unexpectedly succeeded");
+            }
+            catch (Exception ex)
+            {
+                bool friendly = ex.Message.Contains("network or shared folder", StringComparison.OrdinalIgnoreCase)
+                             && ex.Message.Contains("move or copy the file", StringComparison.OrdinalIgnoreCase);
+                bool rawLeaked = ex.Message.Contains(NoteStore.StreamName, StringComparison.OrdinalIgnoreCase)
+                              || ex.Message.Contains("syntax is incorrect", StringComparison.OrdinalIgnoreCase);
+                if (friendly && !rawLeaked)
+                    Pass("save on network path surfaces the friendly message (no raw ADS path)");
+                else
+                    Fail($"save message not friendly: \"{ex.Message}\"");
+            }
+
+            // 3) a UNC search root is skipped gracefully instead of scanned
+            var skipped = new List<string>();
+            int found = NoteIndex.Scan(new[] { netRoot }, _ => { }, onRootStarted: null,
+                CancellationToken.None, onRootSkipped: skipped.Add);
+            if (found == 0 && skipped.Count == 1 && skipped[0].Contains("Skipped network folder"))
+                Pass($"UNC search root skipped gracefully: \"{skipped[0]}\"");
+            else
+                Fail($"expected one graceful skip line for the UNC root, got {skipped.Count} (found={found})");
+
+            // 4) a normal NTFS path still reports supported and saves
+            var (localOk, localReason) = NoteStore.IsSupportedPath(localFile);
+            if (localOk)
+                Pass("local NTFS path still detected supported");
+            else
+                Fail($"local NTFS path reported unsupported: \"{localReason}\"");
+
+            NoteEditorService.Save(localFile, "ntfs still works", new[] { "netpath" });
+            var readBack = NoteStore.Read(localFile);
+            if (readBack is not null && readBack.Body == "ntfs still works")
+                Pass("save/read round-trip on local NTFS still works");
+            else
+                Fail("local NTFS round-trip broken");
+            NoteStore.Delete(localFile);
+        }
+        catch (Exception ex)
+        {
+            Fail("exception: " + ex);
+        }
+        finally
+        {
+            try { File.Delete(netFile); } catch { /* share unreachable etc. */ }
+            try { File.Delete(localFile); } catch { /* nowhere else to report */ }
+        }
+
+        lines.Add(failures == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures} failing check(s))");
+        try { File.WriteAllLines(resultFile, lines); }
+        catch { /* GUI-subsystem app: if the result file is unwritable there is nowhere to report */ }
+        return failures == 0 ? 0 : 1;
     }
 
     /// <summary>Save-path round-trip (M2 hook, unchanged semantics).</summary>

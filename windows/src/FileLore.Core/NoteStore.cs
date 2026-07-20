@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 
 namespace FileLore.Core;
@@ -29,6 +31,86 @@ public static class NoteStore
 
     /// <summary>Full ADS path form, e.g. <c>C:\dir\file.mp4:filelore.note</c>.</summary>
     public static string StreamPath(string path) => path + ":" + StreamName;
+
+    // ---- location support -------------------------------------------------------
+
+    /// <summary>
+    /// Second half of every unsupported-location message: what the user can
+    /// do about it. Kept as one shared constant so the editor banner, the
+    /// save-path exception and future callers all give identical guidance.
+    /// Deliberately never mentions the raw <c>:filelore.note</c> stream path.
+    /// </summary>
+    public const string LocalDriveGuidance =
+        "Notes work on files on this PC's own drives (NTFS) — move or copy the file " +
+        @"to a local folder (e.g. C:\FileLoreTest or Documents on a normal Windows PC) and note it there.";
+
+    private const string NetworkReason =
+        "This file is on a network or shared folder, where FileLore notes can't be stored.";
+
+    /// <summary>
+    /// Whether a note can be stored on <paramref name="path"/>. Notes live in
+    /// NTFS alternate data streams, which exist only on local NTFS volumes —
+    /// on network shares (UNC paths, mapped network drives) and non-NTFS
+    /// volumes (FAT32/exFAT) Windows rejects the ADS path with a raw
+    /// "filename syntax is incorrect" error naming
+    /// <c>&lt;path&gt;:filelore.note</c>. Callers check this first so they can
+    /// show <paramref name="reason"/> (a friendly sentence, safe to display)
+    /// instead. Reason is empty when supported.
+    /// </summary>
+    public static (bool Ok, string Reason) IsSupportedPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return (false, "This location can't store FileLore notes (no valid path).");
+
+        if (IsNetworkPath(path))
+            return (false, NetworkReason);
+
+        // Non-NTFS local volume (FAT32/exFAT USB sticks etc.): same ADS
+        // limitation. If the filesystem can't be determined we stay
+        // permissive — local fixed drives are NTFS on any normal Windows PC.
+        string? root = null;
+        try { root = Path.GetPathRoot(Path.GetFullPath(path)); } catch { /* fall through */ }
+        var fsName = new StringBuilder(261);
+        if (root is not null
+            && GetVolumeInformationW(root, null, 0, out _, out _, out _, fsName, fsName.Capacity)
+            && !string.Equals(fsName.ToString(), "NTFS", StringComparison.OrdinalIgnoreCase))
+        {
+            return (false,
+                $"This file is on a {fsName} volume, which can't store FileLore notes " +
+                "(notes need NTFS alternate data streams).");
+        }
+
+        return (true, "");
+    }
+
+    /// <summary>
+    /// True when <paramref name="path"/> lives on a network/share location:
+    /// a UNC path (<c>\\server\share\…</c>, including Parallels Shared
+    /// Folders like <c>\\Mac\Home\…</c>) or a mapped network drive
+    /// (<c>GetDriveType</c> → <c>DRIVE_REMOTE</c>).
+    /// </summary>
+    public static bool IsNetworkPath(string path)
+    {
+        string? root;
+        try { root = Path.GetPathRoot(Path.GetFullPath(path)); }
+        catch { return false; } // not a rooted path → let the NTFS check decide
+        if (root is null) return false;
+        if (root.StartsWith(@"\\", StringComparison.Ordinal)) return true; // UNC
+        return GetDriveTypeW(root) == DriveRemote;
+    }
+
+    private const uint DriveRemote = 4;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint GetDriveTypeW(string lpRootPathName);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetVolumeInformationW(
+        string lpRootPathName,
+        StringBuilder? lpVolumeNameBuffer, int nVolumeNameSize,
+        out uint lpVolumeSerialNumber, out uint lpMaximumComponentLength, out uint lpFileSystemFlags,
+        StringBuilder lpFileSystemNameBuffer, int nFileSystemNameSize);
 
     /// <summary>
     /// Writes (or overwrites) the note on <paramref name="path"/>, refreshing
