@@ -14,6 +14,9 @@ export const DOWNLOAD_URL_WINDOWS = "/downloads/FileLore-Windows-x64.zip"
 /** Human-readable size of the Windows download zip. */
 export const DOWNLOAD_SIZE_WINDOWS = "62.8 MB"
 
+/** Standalone diagnostics collector for Windows support (writes a report to the Desktop). */
+export const DOWNLOAD_URL_DIAGNOSE = "/downloads/FileLore-Diagnose.cmd"
+
 /**
  * ☕ Donate link for the "Support FileLore" section.
  *

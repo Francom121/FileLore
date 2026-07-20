@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_URL, DOWNLOAD_URL_WINDOWS } from "@/config"
+import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_URL, DOWNLOAD_URL_DIAGNOSE, DOWNLOAD_URL_WINDOWS } from "@/config"
 import { Download, FolderDown, MousePointerClick, ShieldCheck, PanelTop, Trash2 } from "lucide-react"
 
 const macSteps = [
@@ -136,6 +136,17 @@ export default function DownloadCTA() {
             On Windows
           </p>
           <StepList steps={windowsSteps} />
+          <p className="mt-4 text-sm text-white/50">
+            Troubleshooting?{" "}
+            <a
+              href={DOWNLOAD_URL_DIAGNOSE}
+              download
+              className="font-medium text-fl-300 underline decoration-fl-300/40 underline-offset-2 hover:text-fl-200"
+            >
+              Grab FileLore-Diagnose.cmd
+            </a>{" "}
+            — it writes a diagnostics report to your Desktop; send it back for help.
+          </p>
         </div>
       </div>
     </section>

@@ -8,6 +8,8 @@ What's in this download
   FileLore.exe            the app (single file, nothing to extract)
   Install-FileLore.cmd    per-user installer - NO admin rights needed
   Uninstall-FileLore.cmd  removes FileLore cleanly
+  FileLore-Diagnose.cmd   diagnostics collector - writes a report to
+                          your Desktop when something's wrong
   README-WINDOWS.txt      this file
 
 Install (2 minutes)
@@ -94,10 +96,23 @@ Uninstall
 
 Troubleshooting
 ---------------
-- "FileLore Note" missing from the menu? On Windows 11 click
-  "Show more options" first - the verb lives in the classic menu.
+- "FileLore Note" missing from the right-click menu?
+  1. On Windows 11 it's inside "Show more options" first - the verb
+     lives in the classic menu.
+  2. Restart Explorer so it picks up the new menu entry:
+     Ctrl+Shift+Esc -> find "Windows Explorer" -> Restart
+     (or just sign out and back in).
+  3. Re-run Install-FileLore.cmd and look for [FAIL] lines - it now
+     double-checks every registry entry it writes and reports them.
+  4. Still stuck? Double-click FileLore-Diagnose.cmd (in this zip, or
+     from the download page). It writes FileLore-Diagnose.txt to your
+     Desktop and opens it - share that file for help.
+- Which version am I running? Look at the bottom of the FileLore tray
+  menu (right-click the quill icon) - the version and build date are
+  shown just above "Exit". Or run "FileLore.exe --version".
 - Hotkeys not working? Make sure the FileLore tray icon is running
   (double-click the Desktop shortcut, or sign out and back in).
-- Reinstalling over an old copy is fine: just run Install again.
+- Reinstalling over an old copy is fine: just run Install again - it
+  tells you which build it's replacing ("Replacing build from <date>").
 
 https://github.com/fm/filelore  -  thanks for trying FileLore!

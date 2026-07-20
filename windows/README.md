@@ -94,10 +94,25 @@ bookmark, displayName, relativePathHint` are never renamed or removed).
 
 ## For developers
 
+- **Bumping the version:** edit `src/FileLore.App/AppVersion.cs`
+  (`Number` + `BuildDate`) — that one file feeds the tray menu label and
+  `FileLore.exe --version`. Also bump `<Version>` in
+  `src/FileLore.App/FileLore.App.csproj` (exe file properties) and the
+  hardcoded version string near the top of `tools/Install-FileLore.cmd`.
 - Core note store (ADS read/write, JSON envelope compatible with macOS),
   link resolver, Markdown exporter: `src/FileLore.Core/`
 - WPF app (editor with media pane + links, batch window, drop zone, search
   window, tray, hotkeys, settings): `src/FileLore.App/`
+- Version visibility: tray menu shows `FileLore <version> (build <date>)`
+  as a disabled item above Exit; `FileLore.exe --version` prints the same
+  line and exits (attaches to the parent console when there is one).
+- Installer: `tools/Install-FileLore.cmd` verifies every registry write
+  with a read-back (`[OK]`/`[FAIL]` per entry), reports the OLD vs NEW exe
+  date when upgrading, and offers to restart Explorer at the end
+  (`/q` prints a note instead). Field diagnostics:
+  `tools/FileLore-Diagnose.cmd` — no admin, pure cmd, writes
+  `FileLore-Diagnose.txt` to the Desktop (Windows build, exe presence,
+  HKCU/HKLM verb dumps, Run key, running processes, `--version` output).
 - Single-instance multi-select: `InstanceMessenger` (named pipe
   `FileLore.SingleInstance.Paths`, one UTF-8 line per path, ack per line).
 - Shell thumbnails via `IShellItemImageFactory` P/Invoke (`ShellThumbnail`) —

@@ -19,6 +19,8 @@ namespace FileLore.App;
 /// Command line:
 ///   FileLore.exe [path]            open the editor for path (or start tray)
 ///   FileLore.exe --tray            start tray-only, no balloon (autostart)
+///   FileLore.exe --version [outFile]  print the version + build date and exit
+///                                    (optional file target for diagnostics)
 ///   FileLore.exe --hotkey-open-selection   dev hook: run the note-selection handler
 ///   FileLore.exe --selftest …      headless verification (see SelfTest)
 /// </summary>
@@ -43,6 +45,17 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Version query: print and exit before touching the mutex or tray.
+        // The app is a GUI-subsystem binary, so attach to the parent console
+        // (when launched from cmd/Explorer's "Open in Terminal") to make the
+        // output visible; redirected stdout (diagnose script) works either way.
+        if (e.Args.Length >= 1 && e.Args[0] is "--version" or "-v")
+        {
+            PrintVersionToConsole(e.Args);
+            Shutdown(0);
+            return;
+        }
 
         // Headless verification hooks (see SelfTest for the full list):
         if (e.Args.Length >= 1 && e.Args[0] == "--selftest")
@@ -101,6 +114,41 @@ public partial class App : Application
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             OpenEditor(path);
         }
+    }
+
+    // ---- version --------------------------------------------------------------
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool AttachConsole(int dwProcessId);
+
+    private const int AttachParentProcess = -1;
+
+    private static void PrintVersionToConsole(string[] args)
+    {
+        AppLog.Write("--version: " + AppVersion.Full);
+
+        // Optional file target:  FileLore.exe --version <file>
+        // Used by FileLore-Diagnose.cmd — cmd never waits for GUI-subsystem
+        // apps and stdout redirection of a WinExe single-file binary proved
+        // unreliable, so the script passes a file and polls for it.
+        if (args.Length >= 2)
+        {
+            try { File.WriteAllText(args[1], AppVersion.Full + Environment.NewLine); }
+            catch (Exception ex) { AppLog.Write("--version file write failed: " + ex.Message); }
+        }
+
+        // Interactive best effort: attach to the caller's console and write
+        // via CONOUT$ (a GUI app has no standard handles of its own).
+        try
+        {
+            if (AttachConsole(AttachParentProcess))
+            {
+                using var con = new StreamWriter(File.OpenWrite("CONOUT$")) { AutoFlush = true };
+                con.WriteLine(AppVersion.Full);
+            }
+        }
+        catch { /* no console available */ }
+        try { Console.WriteLine(AppVersion.Full); } catch { /* no usable stdout */ }
     }
 
     // ---- path collection (single-file → editor, many → batch window) -------------
@@ -333,6 +381,8 @@ public partial class App : Application
         menu.Items.Add("Settings…", null, (_, _) => ShowSettingsWindow());
         menu.Items.Add("Keyboard Shortcuts…", null, (_, _) => ShowShortcutsWindow());
         menu.Items.Add(new WinForms.ToolStripSeparator());
+        // Disabled version label so "which build am I on?" is answerable from the tray.
+        menu.Items.Add(new WinForms.ToolStripMenuItem(AppVersion.Full) { Enabled = false });
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
     }
 
