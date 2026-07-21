@@ -24,4 +24,4 @@ export const DOWNLOAD_URL_DIAGNOSE = "/downloads/FileLore-Diagnose.cmd"
  * shipping, e.g. "https://ko-fi.com/yourname". Until then the button
  * points at a placeholder that goes nowhere useful.
  */
-export const DONATE_URL = "https://ko-fi.com/REPLACE_ME"
+export const DONATE_URL = "https://ko-fi.com/filelore"
