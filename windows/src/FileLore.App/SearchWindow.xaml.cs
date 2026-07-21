@@ -45,7 +45,58 @@ public partial class SearchWindow : Window
             RebuildRootChips();
             RefreshIndex();
         };
-        Closed += (_, _) => _scanCts?.Cancel();
+        NoteEvents.NoteChanged += OnNoteChanged;
+        Closed += (_, _) =>
+        {
+            NoteEvents.NoteChanged -= OnNoteChanged;
+            _scanCts?.Cancel();
+        };
+    }
+
+    /// <summary>
+    /// Live update: a note was saved or deleted somewhere in the app (editor,
+    /// linked-files edit, batch run). Re-read that one file and patch the
+    /// in-memory index so results and tag chips reflect the change
+    /// immediately — no Refresh / window reopen needed.
+    /// </summary>
+    private void OnNoteChanged(string path)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            Note? note = null;
+            try { note = NoteStore.Read(path); }
+            catch { /* unreadable envelope → treat as gone */ }
+
+            int i = _all.FindIndex(n => string.Equals(n.Path, path, StringComparison.OrdinalIgnoreCase));
+            if (note is null)
+            {
+                if (i < 0) return; // wasn't indexed anyway
+                _all.RemoveAt(i);
+            }
+            else if (i >= 0)
+            {
+                _all[i] = new IndexedNote { Path = _all[i].Path, Note = note };
+            }
+            else if (IsUnderRoot(path))
+            {
+                _all.Add(new IndexedNote { Path = path, Note = note }); // newly noted file
+            }
+            else
+            {
+                return; // outside the configured search folders
+            }
+            RebuildTagChips();
+            ApplyFilter();
+        });
+    }
+
+    private bool IsUnderRoot(string path)
+    {
+        string full;
+        try { full = Path.GetFullPath(path); }
+        catch { return false; }
+        return _roots.Any(r =>
+            full.StartsWith(r.TrimEnd('\\', '/') + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
     }
 
     // ---- indexing --------------------------------------------------------------
@@ -84,6 +135,9 @@ public partial class SearchWindow : Window
                         int n = Interlocked.Increment(ref found);
                         Dispatcher.BeginInvoke(() =>
                         {
+                            // A live NoteChanged update may already have added
+                            // this path mid-scan — the fresh read wins.
+                            _all.RemoveAll(x => string.Equals(x.Path, note.Path, StringComparison.OrdinalIgnoreCase));
                             _all.Add(note);
                             StatusText.Text = $"Scanning {currentRoot}… {n} note(s) found";
                             ApplyFilter();

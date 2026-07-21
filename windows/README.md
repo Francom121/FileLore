@@ -77,6 +77,14 @@ bookmark, displayName, relativePathHint` are never renamed or removed).
 
 - **First launch can take up to a minute** (one-time self-extraction +
   Windows scan); later launches are fast.
+- **An animated FileLore splash** (brand-orange spinner + logo) appears
+  whenever the app is working before a window can show — cold start, and
+  the ~1.5 s pause while a multi-select batch is collected — so a quiet
+  moment never looks like a hang. It fades out the instant the editor,
+  batch window or tray is ready.
+- **The search window updates live:** saving a note (tags, body, links —
+  from the editor or a batch run) immediately updates open search results
+  and tag chips; deleting a note removes its row. No Refresh needed.
 - Notes survive rename and move **on the same NTFS drive**. Copying to
   another drive, a network share, OneDrive or email usually drops the
   hidden stream (Explorer may warn "the file has properties that can't be
@@ -103,6 +111,12 @@ bookmark, displayName, relativePathHint` are never renamed or removed).
   link resolver, Markdown exporter: `src/FileLore.Core/`
 - WPF app (editor with media pane + links, batch window, drop zone, search
   window, tray, hotkeys, settings): `src/FileLore.App/`
+- Startup/collection feedback: `SplashWindow` (all-XAML storyboard
+  animations, brand palette, failsafe auto-close) shown via
+  `App.ShowSplash`/`CloseSplash` around cold start and the multi-select
+  debounce. Live search refresh: every save/delete raises
+  `NoteEvents.NoteChanged(path)`; `SearchWindow` patches its in-memory
+  index in place.
 - Version visibility: tray menu shows `FileLore <version> (build <date>)`
   as a disabled item above Exit; `FileLore.exe --version` prints the same
   line and exits (attaches to the parent console when there is one).

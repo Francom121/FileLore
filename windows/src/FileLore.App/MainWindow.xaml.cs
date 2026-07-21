@@ -683,6 +683,7 @@ public partial class MainWindow : Window
         try
         {
             NoteStore.Delete(_path);
+            NoteEvents.RaiseChanged(_path);
             BodyBox.Clear();
             PillsPanel.Children.Clear();
             _links.Clear();
