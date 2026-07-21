@@ -15,7 +15,7 @@ Three deliverables in one repo:
 | Deliverable | Status | Location |
 |---|---|---|
 | macOS app (Swift/SwiftUI/AppKit) | shipped v1 | `FileLore/`, `FileLoreFinderSync/`, `FileLoreQuickLook/`, `TetherCore/`, `FileLore.xcodeproj` |
-| Windows app (C# WPF, .NET 8) | v0.7.0 | `windows/` |
+| Windows app (C# WPF, .NET 8) | v0.7.1 | `windows/` |
 | Marketing site (React+TS+Vite+Tailwind+shadcn) | built, not yet publicly deployed | `website/` |
 
 Primary use case: attaching AI-generation prompts, model info, and reference
@@ -236,8 +236,25 @@ the real count is 76.)
 
 ---
 
-## 5. Windows app (`windows/`, v0.7.0)
+## 5. Windows app (`windows/`, v0.7.1)
 
+- **Two-exe layout (0.7.1):** the shipped `FileLore.exe` is a tiny native
+  Win32 **launcher** (`src/FileLore.Launcher/`, ~200 KB, no ATL/MFC, `/MT`
+  static CRT, x64+ARM64 via `build-launcher.cmd`, deps kernel32/user32/
+  gdi32/shell32 only). It instantly shows a borderless layered "Getting
+  FileLore ready…" card (brand cream/orange, GDI comet spinner, fade
+  in/out), launches `FileLoreApp.exe` (same folder, args forwarded
+  verbatim) **on a worker thread** — Defender's first-scan of the ~180 MB
+  app can block CreateProcess for many seconds and must never stall the
+  card — then waits: app shows its first visible top-level window
+  (EnumWindows by PID) → fade out; app exits windowless (single-instance
+  forward) → close; 5-min failsafe. `--tray` = launch + exit immediately;
+  `--version`/`-v`/`--selftest` = wait + propagate exit code, no card.
+  Installer: right-click verb + shortcuts → launcher; Run-key autostart →
+  `FileLoreApp.exe --tray` DIRECTLY (no card at login). The WPF app is
+  `<AssemblyName>FileLoreApp</AssemblyName>` and publishes with
+  `<PublishReadyToRun>true</PublishReadyToRun>` in the csproj (cuts JIT
+  warmup jank; exe 162 → 178 MB, still single-file).
 - `src/FileLore.Core/` — net8.0 library: `Note.cs` (System.Text.Json with the
   additive link keys), `NoteStore.cs` (ADS read/write + `IsSupportedPath`
   friendly guard), `NoteIndex.cs` (`FindFirstStreamW`/`FindNextStreamW` stream
@@ -264,10 +281,11 @@ the real count is 76.)
   already-running instance (second instance exits after sending the command);
   `--tray` autostart stays silent. Startup/busy feedback is the animated
   `SplashWindow` (never covers the first-run single-file extraction/JIT —
-  that precedes any WPF window).
-- Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.7.0"`,
-  `BuildDate`) — also bump `<Version>` in `FileLore.App.csproj` and the
-  hardcoded string at the top of `tools/Install-FileLore.cmd`.
+  that precedes any WPF window; the native launcher card covers that gap).
+- Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.7.1"`,
+  `BuildDate`) — also bump `<Version>` in `FileLore.App.csproj`, the
+  hardcoded string at the top of `tools/Install-FileLore.cmd`, and the
+  VERSIONINFO in `src/FileLore.Launcher/FileLoreLauncher.rc`.
 - **Explorer overlay badge (0.7.0):** `src/FileLore.Overlay/` — no-ATL C++
   `IShellIconOverlayIdentifier` DLL (`/MT` static CRT, deps only
   kernel32/ole32/advapi32, x64+ARM64 via `build-overlay.cmd`; CLSID
@@ -306,11 +324,13 @@ expansion inside `if (...)` blocks.
 ### Selftests (headless verification, all PASS on both RIDs)
 
 ```bat
-FileLore.exe --selftest <name> <resultFile>
+FileLoreApp.exe --selftest <name> <resultFile>
 :: names: netpath | search | links | batch | export | templates | pins | hotkeys
 :: (bare "--selftest <resultFile> <path> <body> <tagsCsv>" = save round-trip)
 :: writes PASS/FAIL lines to resultFile; exit code 0 = pass
 :: settings tests snapshot-restore settings.json; hotkeys needs interactive session
+:: (0.7.1: run against FileLoreApp.exe; the FileLore.exe launcher forwards
+:: --selftest headlessly, but direct is simpler)
 ```
 
 ### Known Mac-parity gaps
@@ -382,7 +402,9 @@ prlctl exec "Windows 11" cmd /c 'robocopy "\\Mac\Home\Documents\Tether\windows" 
 ```
 
 **Build/publish** (win-arm64 for the VM itself; win-x64 for the release —
-verify the exe PE machine is 0x8664):
+verify the exe PE machine is 0x8664). Produces `FileLoreApp.exe`
+(R2R comes from the csproj since 0.7.1); build the native launcher
+(`FileLore.exe`) separately with `src\FileLore.Launcher\build-launcher.cmd`:
 
 ```bat
 C:\dotnet\dotnet.exe publish C:\filelore\src\FileLore.App\FileLore.App.csproj ^
@@ -441,15 +463,18 @@ text via UIA), `edit-and-save.ps1` (UIA tag edit + Save in the editor),
   BuildTools` (installed via `vs_BuildTools.exe --quiet --wait`; the VM
   has no winget).
 
-**Deploy to the VM:** `taskkill /f /im FileLore.exe` → copy new exe → relaunch
-tray via the schtasks pattern above.
+**Deploy to the VM:** `taskkill /f /im FileLoreApp.exe` + `taskkill /f /im
+FileLore.exe` → copy new exes → relaunch tray via the schtasks pattern above.
 
-**Release zip:** self-contained win-x64 `FileLore.exe` + `FileLoreOverlay.dll`
+**Release zip (0.7.1 two-exe layout):** native launcher `FileLore.exe` (x64,
+from `src\FileLore.Launcher\out\x64\`) + self-contained win-x64
+`FileLoreApp.exe` + `FileLoreOverlay.dll`
 + `Install-FileLore.cmd` + `Uninstall-FileLore.cmd` +
 `Register-FileLoreOverlay.cmd` + `Unregister-FileLoreOverlay.cmd` +
 `FileLore-Diagnose.cmd` + `README-WINDOWS.txt`
 (assets in `windows/dist-assets/`) → `website/public/downloads/FileLore-Windows-x64.zip`
 (that directory is gitignored; stale duplicate folders there are Finder junk).
+After rezip, update `DOWNLOAD_SIZE_WINDOWS` in `website/src/config.ts`.
 
 The user tests on the Mac GUI and on a **real Intel Windows PC at work** —
 the VM is for build/smoke only.
@@ -519,7 +544,7 @@ start.
 | xattr names + legacy fallback | `TetherCore/.../NoteStore.swift` | ✅ |
 | ADS stream name, IsSupportedPath, FindFirstStreamW | `windows/src/FileLore.Core/*.cs` | ✅ |
 | Additive link keys path/size/added | `windows/src/FileLore.Core/Note.cs` | ✅ |
-| Windows version 0.7.0 | `AppVersion.cs` + csproj `<Version>` | ✅ |
+| Windows version 0.7.1 | `AppVersion.cs` + csproj `<Version>` + launcher RC | ✅ |
 | Selftest names | `SelfTest.cs` dispatch switch | ✅ |
 | Ctrl+Alt+T / Ctrl+Alt+F defaults | `Settings.cs` (`DefaultOpenSelection`/`DefaultSearch`) | ✅ |
 | VM "Windows 11" running, dotnet 8.0.423 | `prlctl list` + `prlctl exec … dotnet --version` | ✅ |

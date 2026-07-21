@@ -12,13 +12,15 @@ if /i "%~1"=="/q" set "QUIET=1"
 
 set "DEST=%LOCALAPPDATA%\FileLore"
 set "EXE=%DEST%\FileLore.exe"
+set "APPEXE=%DEST%\FileLoreApp.exe"
 
 echo.
 echo   FileLore uninstaller
 echo.
 
-REM 1. Stop the running per-user copy only (never other installs).
-powershell -NoProfile -Command "$t=$env:LOCALAPPDATA+'\FileLore\FileLore.exe'; Get-Process FileLore -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $t } | Stop-Process -Force" >nul 2>&1
+REM 1. Stop the running per-user copy only (launcher AND app; never
+REM    other installs).
+powershell -NoProfile -Command "$d=$env:LOCALAPPDATA+'\FileLore\'; Get-Process FileLore,FileLoreApp -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($d,'OrdinalIgnoreCase') } | Stop-Process -Force" >nul 2>&1
 echo   [OK] App stopped
 
 REM 1.5 If Explorer badges were enabled, undo that FIRST (the HKLM key
@@ -53,8 +55,9 @@ del /f /q "%USERPROFILE%\Desktop\FileLore.lnk" >nul 2>&1
 del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\FileLore.lnk" >nul 2>&1
 echo   [OK] Shortcuts removed
 
-REM 4. Remove the app binary + badge add-on; keep user data unless you say otherwise.
+REM 4. Remove the launcher + app + badge add-on; keep user data unless you say otherwise.
 del /f /q "%EXE%" >nul 2>&1
+del /f /q "%APPEXE%" >nul 2>&1
 del /f /q "%DEST%\FileLoreOverlay.dll" >nul 2>&1
 del /f /q "%DEST%\Register-FileLoreOverlay.cmd" >nul 2>&1
 del /f /q "%DEST%\Unregister-FileLoreOverlay.cmd" >nul 2>&1

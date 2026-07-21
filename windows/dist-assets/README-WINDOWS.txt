@@ -5,9 +5,16 @@ move it to another folder - the note stays attached.
 
 What's in this download
 -----------------------
-  FileLore.exe            the app (single file, nothing to extract)
+  FileLore.exe            the launcher - double-click this. It pops up a
+                          small "Getting FileLore ready..." window right
+                          away and starts the app for you.
+  FileLoreApp.exe         the app itself (the launcher starts it; you
+                          never need to run this one directly)
+  FileLoreOverlay.dll     optional Explorer badge add-on (see below)
   Install-FileLore.cmd    per-user installer - NO admin rights needed
   Uninstall-FileLore.cmd  removes FileLore cleanly
+  Register-FileLoreOverlay.cmd / Unregister-FileLoreOverlay.cmd
+                          the optional badge add-on's on/off helpers
   FileLore-Diagnose.cmd   diagnostics collector - writes a report to
                           your Desktop when something's wrong
   README-WINDOWS.txt      this file
@@ -27,8 +34,10 @@ Already installed an older version?
   app, keeps your notes and settings, and you're done. No need to
   uninstall first.
 
-  FIRST LAUNCH can take up to a minute (one-time self-extraction +
-  Windows scan). Later launches are fast.
+  FIRST LAUNCH: a small "Getting FileLore ready..." window pops up the
+  moment you double-click FileLore.exe, with a spinner. Behind it the
+  app itself can take up to a minute to appear the very first time
+  (one-time self-extraction + Windows scan). Later launches are fast.
 
 Use it
 ------
@@ -84,6 +93,12 @@ Good to know
   so there is no database to back up; the files ARE the storage.
 - No admin rights are ever needed. Everything installs under
   %LOCALAPPDATA%\FileLore and your own registry hive (HKCU).
+  ONE exception, and it's optional: "Show badges in Explorer"
+  (tray menu -> Settings...) puts a small FileLore badge on noted
+  files in Explorer, like OneDrive's status icons. Windows only
+  allows icon overlays machine-wide, so turning badges on asks for
+  admin rights ONCE. Off by default; everything else stays
+  admin-free.
 - The Windows app doesn't render PDFs inline in the editor (the Mac
   app does) - PDFs show their icon instead.
 

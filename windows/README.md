@@ -89,16 +89,21 @@ so and tells you what to remove.
 
 ## Good to know
 
-- **First launch can take up to a minute** (one-time self-extraction +
-  Windows scan); later launches are fast.
+- **First launch:** a small branded **"Getting FileLore ready…"** window
+  pops up the instant you double-click `FileLore.exe` — that's the tiny
+  native **launcher** (0.7.1+), not the app itself. It stays up, spinner
+  animating, while Windows does the one-time self-extraction + scan of the
+  real app (up to a minute on the very first launch), and fades out the
+  moment the app's first window appears. Later launches are fast.
 - **An animated FileLore splash** (brand-orange spinner + logo) appears
   whenever the app is busy before a window can show — in-process startup
   work (tray, hotkeys, pipe setup), and the ~1.5 s pause while a
   multi-select batch is collected — so a quiet moment never looks like a
   hang. It fades out the instant the editor, batch window or drop zone is
-  ready. The splash cannot cover the very first launch's one-time
-  self-extraction and CLR/JIT warmup, which happen before any WPF window
-  can exist — that first run still takes a moment before anything shows.
+  ready. The WPF splash cannot cover the first launch's self-extraction
+  and CLR load, which happen before any WPF window can exist — that gap
+  is exactly what the native launcher window covers (they hand off to
+  each other seamlessly).
 - **The search window updates live:** saving a note (tags, body, links —
   from the editor or a batch run) immediately updates open search results
   and tag chips; deleting a note removes its row. No Refresh needed.
@@ -119,11 +124,32 @@ so and tells you what to remove.
 
 ## For developers
 
+- **Two-exe layout (0.7.1):** `FileLore.exe` is a tiny **native Win32
+  launcher** (~200 KB, `src/FileLore.Launcher/`, no ATL/MFC, `/MT` static
+  CRT, x64+ARM64 via `build-launcher.cmd`); `FileLoreApp.exe` is the WPF
+  app (`<AssemblyName>FileLoreApp</AssemblyName>`). The launcher shows the
+  branded "Getting FileLore ready…" card INSTANTLY (borderless layered
+  window, brand cream `#FDF7EC` / orange `#EB961E`, pure-GDI comet
+  spinner on a 16 ms timer), then launches `FileLoreApp.exe` from its own
+  folder **on a worker thread** — CreateProcess of the ~180 MB single-file
+  exe can block for many seconds during Defender's first-scan, and the
+  window must never wait on that. It closes (fade-out) when the app
+  process shows its first visible top-level window (EnumWindows by PID)
+  OR exits without one (single-instance forward case); 5-minute failsafe.
+  Pass-through modes skip the card: `--tray` (launch + exit immediately),
+  `--version`/`-v`/`--selftest` (wait + propagate exit code). The
+  right-click verb and shortcuts point at the LAUNCHER; the Run-key
+  autostart points DIRECTLY at `FileLoreApp.exe --tray` (no card at
+  login). Multi-select is unaffected: N launchers each wait for their
+  spawned process, which forwards to the first instance and exits.
+  The app also publishes with `<PublishReadyToRun>true</PublishReadyToRun>`
+  (cuts JIT warmup jank; ~+16 MB exe size, still single-file).
 - **Bumping the version:** edit `src/FileLore.App/AppVersion.cs`
   (`Number` + `BuildDate`) — that one file feeds the tray menu label and
-  `FileLore.exe --version`. Also bump `<Version>` in
-  `src/FileLore.App/FileLore.App.csproj` (exe file properties) and the
-  hardcoded version string near the top of `tools/Install-FileLore.cmd`.
+  `FileLore.exe --version` (forwarded to the app). Also bump `<Version>`
+  in `src/FileLore.App/FileLore.App.csproj` (exe file properties), the
+  hardcoded version string near the top of `tools/Install-FileLore.cmd`,
+  and the VERSIONINFO in `src/FileLore.Launcher/FileLoreLauncher.rc`.
 - Core note store (ADS read/write, JSON envelope compatible with macOS),
   link resolver, Markdown exporter: `src/FileLore.Core/`
 - WPF app (editor with media pane + links, batch window, drop zone, search
@@ -135,8 +161,9 @@ so and tells you what to remove.
   `NoteEvents.NoteChanged(path)`; `SearchWindow` patches its in-memory
   index in place.
 - Version visibility: tray menu shows `FileLore <version> (build <date>)`
-  as a disabled item above Exit; `FileLore.exe --version` prints the same
-  line and exits (attaches to the parent console when there is one).
+  as a disabled item above Exit; `FileLoreApp.exe --version` prints the
+  same line and exits (attaches to the parent console when there is one);
+  the launcher forwards `--version` to the app without showing its card.
 - Installer: `tools/Install-FileLore.cmd` verifies every registry write
   with a read-back (`[OK]`/`[FAIL]` per entry), reports the OLD vs NEW exe
   date when upgrading, and offers to restart Explorer at the end
@@ -177,8 +204,9 @@ so and tells you what to remove.
   re-run `IsMemberOf` for an already-displayed item; only a real folder
   refresh (F5 / `IWebBrowserApp.Refresh()`) does.
 - Headless verification (all write PASS/FAIL lines to the result file,
-  exit code 0 = pass):
-  - `FileLore.exe --selftest <resultFile> <path> <body> <tagsCsv>` — save round-trip
+  exit code 0 = pass) — run against `FileLoreApp.exe` directly (the
+  launcher forwards `--selftest` too, but direct is simpler):
+  - `FileLoreApp.exe --selftest <resultFile> <path> <body> <tagsCsv>` — save round-trip
   - `--selftest search <resultFile>` — enumeration + text/tag search
   - `--selftest netpath <resultFile>` — unsupported-location guard
   - `--selftest links <resultFile>` — link write/read-back, same-folder
@@ -190,13 +218,12 @@ so and tells you what to remove.
   - `--selftest templates|pins|hotkeys <resultFile>` — settings round-trips
     (settings.json is snapshot-restored; hotkey test must run in an
     interactive session — RegisterHotKey fails in session 0)
-- Dev hook for the note-selection hotkey handler: `FileLore.exe --hotkey-open-selection`
+- Dev hook for the note-selection hotkey handler: `FileLoreApp.exe --hotkey-open-selection`
 - Explorer verb + shortcuts: `tools/install-context-menu.cmd`,
   `tools/install-shortcuts.ps1`; demo fixtures: `tools/vm-m5-fixtures.ps1`
 
 ## Known Mac-parity gaps
 
-- No Finder-style **Explorer badges** on noted files.
 - No **Explorer preview-pane / Quick Look** integration.
 - **No inline PDF rendering** in the editor (icon fallback).
 - **Templates are per-device** (Mac templates are not synced).

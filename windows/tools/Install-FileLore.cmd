@@ -6,8 +6,14 @@ REM  and HKCU. Usage:
 REM    Install-FileLore.cmd       interactive (pauses at the end)
 REM    Install-FileLore.cmd /q    scripted (no pause)
 REM
-REM  VERSION: keep "0.7.0" below in sync with AppVersion.cs
+REM  VERSION: keep "0.7.1" below in sync with AppVersion.cs
 REM  (src/FileLore.App/AppVersion.cs) when cutting a new build.
+REM
+REM  Two-exe layout (0.7.1+): FileLore.exe is the tiny native LAUNCHER
+REM  (shows the branded "getting ready" window on cold starts);
+REM  FileLoreApp.exe is the real WPF app. The right-click verb and
+REM  shortcuts point at the LAUNCHER; tray autostart points DIRECTLY
+REM  at FileLoreApp.exe (no launcher window at login).
 REM ============================================================
 setlocal EnableExtensions
 set "QUIET=0"
@@ -15,17 +21,25 @@ if /i "%~1"=="/q" set "QUIET=1"
 set "FAILED=0"
 
 set "SRC=%~dp0FileLore.exe"
+set "SRCAPP=%~dp0FileLoreApp.exe"
 set "DEST=%LOCALAPPDATA%\FileLore"
 set "EXE=%DEST%\FileLore.exe"
+set "APPEXE=%DEST%\FileLoreApp.exe"
 
 echo.
 echo   FileLore - sticky notes for your files
-echo   Installing FileLore 0.7.0 for %USERNAME% ^(no admin needed^)...
+echo   Installing FileLore 0.7.1 for %USERNAME% ^(no admin needed^)...
 echo.
 
 if not exist "%SRC%" (
     echo   ERROR: FileLore.exe not found next to this script:
     echo          %SRC%
+    echo   Unzip the whole download first, then run again.
+    goto :fail
+)
+if not exist "%SRCAPP%" (
+    echo   ERROR: FileLoreApp.exe not found next to this script:
+    echo          %SRCAPP%
     echo   Unzip the whole download first, then run again.
     goto :fail
 )
@@ -45,18 +59,24 @@ if defined OLDDATE (
     echo.
 )
 
-REM 1. Stop a running per-user copy (upgrade case). Any other copy
-REM    of FileLore.exe on this PC is left alone.
-powershell -NoProfile -Command "$t=$env:LOCALAPPDATA+'\FileLore\FileLore.exe'; Get-Process FileLore -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $t } | Stop-Process -Force" >nul 2>&1
+REM 1. Stop a running per-user copy (upgrade case) — BOTH the launcher
+REM    (FileLore.exe) and the real app (FileLoreApp.exe). Any other copy
+REM    of FileLore on this PC is left alone.
+powershell -NoProfile -Command "$d=$env:LOCALAPPDATA+'\FileLore\'; Get-Process FileLore,FileLoreApp -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($d,'OrdinalIgnoreCase') } | Stop-Process -Force" >nul 2>&1
 
-REM 2. Copy the app (+ Explorer-badge add-on files when present).
+REM 2. Copy launcher + app (+ Explorer-badge add-on files when present).
 if not exist "%DEST%" mkdir "%DEST%"
 copy /y "%SRC%" "%EXE%" >nul
 if errorlevel 1 (
     echo   ERROR: could not copy FileLore.exe to %DEST%
     goto :fail
 )
-echo   [OK] App copied to %EXE%
+copy /y "%SRCAPP%" "%APPEXE%" >nul
+if errorlevel 1 (
+    echo   ERROR: could not copy FileLoreApp.exe to %DEST%
+    goto :fail
+)
+echo   [OK] App copied to %DEST% ^(launcher + app^)
 for %%F in (FileLoreOverlay.dll Register-FileLoreOverlay.cmd Unregister-FileLoreOverlay.cmd) do (
     if exist "%~dp0%%F" copy /y "%~dp0%%F" "%DEST%\%%F" >nul
 )
@@ -72,7 +92,8 @@ call :regset "HKCU\Software\Classes\*\shell\FileLore" "Icon" "\"%EXE%\"" "Right-
 call :regset "HKCU\Software\Classes\*\shell\FileLore\command" "" "\"%EXE%\" \"%%%%1\"" "Right-click verb command"
 
 REM 4. Autostart the tray (hotkeys Ctrl+Alt+T / Ctrl+Alt+F live there).
-call :regset "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" "FileLore" "\"%EXE%\" --tray" "Tray autostart (Run key)"
+REM    Points DIRECTLY at FileLoreApp.exe — no launcher window at login.
+call :regset "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" "FileLore" "\"%APPEXE%\" --tray" "Tray autostart (Run key)"
 
 REM 5. Desktop + Start Menu shortcuts.
 powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $exe=$env:LOCALAPPDATA+'\FileLore\FileLore.exe'; $l1=$env:USERPROFILE+'\Desktop\FileLore.lnk'; $l2=$env:APPDATA+'\Microsoft\Windows\Start Menu\Programs\FileLore.lnk'; foreach($lnk in @($l1, $l2)){ $s=$ws.CreateShortcut($lnk); $s.TargetPath=$exe; $s.WorkingDirectory=Split-Path $exe; $s.IconLocation=$exe+',0'; $s.Description='FileLore - sticky notes for your files'; $s.Save() }" >nul
@@ -83,8 +104,9 @@ if errorlevel 1 (
     echo   [OK] Desktop + Start Menu shortcuts created
 )
 
-REM 6. Start the tray now so the hotkeys work immediately.
-start "" "%EXE%" --tray
+REM 6. Start the tray now so the hotkeys work immediately (app directly,
+REM    not via the launcher — no "getting ready" window needed here).
+start "" "%APPEXE%" --tray
 
 echo.
 if "%FAILED%"=="1" (
@@ -99,7 +121,9 @@ if "%FAILED%"=="1" (
 )
 echo.
 echo   NOTE: the FIRST launch can take up to a minute (one-time
-echo         self-extraction + Windows scan). Later launches are fast.
+echo         self-extraction + Windows scan) - the small "Getting
+echo         FileLore ready..." window keeps you company meanwhile.
+echo         Later launches are fast.
 echo.
 echo   Updating from an older version? You're already done - this script
 echo   replaced the old app; your notes and settings were kept.
