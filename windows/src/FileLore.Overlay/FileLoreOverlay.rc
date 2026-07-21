@@ -1,0 +1,4 @@
+// Icon resource for FileLoreOverlay.dll — reuses the app's icon so the
+// Explorer badge matches the tray/menu branding. ID 1 keeps it the first
+// icon (GetOverlayInfo returns index 0).
+1 ICON "..\\FileLore.App\\app.ico"
