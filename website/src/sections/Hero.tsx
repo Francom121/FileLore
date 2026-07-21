@@ -78,7 +78,7 @@ export default function Hero() {
           <ScreenshotFrame className="relative shadow-2xl ring-white/15">
             <img
               src="/screenshots/hero-editor.png"
-              alt="FileLore note editor with media peek: a promo video plays on the left, its note with prompt, model, and links on the right"
+              alt="FileLore note editor open on an image file: the photo preview on the left, its note with an AI image prompt, a tag, and a linked file on the right"
               className="block w-full"
             />
           </ScreenshotFrame>
