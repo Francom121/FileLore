@@ -47,6 +47,11 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Explorer badge refresh: repaint file icons when notes change so the
+        // overlay badge appears/disappears live. No-op unless the user opted
+        // into badges (HKLM overlay registration, see BadgeRegistration).
+        ShellBadgeRefresh.Hook();
+
         // Version query: print and exit before touching the mutex or tray.
         // The app is a GUI-subsystem binary, so attach to the parent console
         // (when launched from cmd/Explorer's "Open in Terminal") to make the

@@ -26,6 +26,66 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         (_open, _search) = Settings.LoadHotkeys();
         RefreshBoxes();
+        RefreshBadgePanel();
+        // Re-check when the user comes back from the elevated helper.
+        Activated += (_, _) => RefreshBadgePanel();
+    }
+
+    // ---- Explorer badges (opt-in, one-time admin step) ----------------------
+
+    private void RefreshBadgePanel()
+    {
+        bool registered = BadgeRegistration.IsRegistered();
+        BadgeOffButton.Visibility = registered ? Visibility.Visible : Visibility.Collapsed;
+        BadgeButton.Visibility = registered ? Visibility.Collapsed : Visibility.Visible;
+
+        if (!BadgeRegistration.FilesPresent)
+        {
+            BadgeButton.IsEnabled = false;
+            BadgeStatusText.Text =
+                "Badge files (FileLoreOverlay.dll) are not installed next to the app — " +
+                "re-run Install-FileLore.cmd from a current download.";
+            return;
+        }
+
+        if (registered)
+        {
+            int slot = BadgeRegistration.SlotPosition();
+            int total = BadgeRegistration.HandlerCount();
+            // Windows loads at most ~15 overlay handlers, alphabetically by
+            // key name — our key is " FileLore" (leading space) precisely to
+            // sort first. Warn if something crowded us out anyway.
+            BadgeStatusText.Text = slot >= 0 && slot < 15
+                ? $"On ✓ Noted files show a small badge in Explorer. (Overlay slot {slot + 1} of {total}; Windows keeps the first ~15.)"
+                : $"Registered, but {total} overlay handlers compete for ~15 slots and FileLore currently sorts " +
+                  "beyond the limit — badges will NOT show. Remove other apps' overlay handlers (cloud " +
+                  "sync tools are the usual suspects) under HKLM\\...\\Explorer\\ShellIconOverlayIdentifiers, " +
+                  "then restart Explorer.";
+        }
+        else
+        {
+            BadgeStatusText.Text =
+                "Optional: noted files get a small badge in Explorer (like OneDrive's status icons). " +
+                "One-time step that asks for admin rights once — Windows requires it for icon overlays. " +
+                "Everything else in FileLore stays admin-free.";
+        }
+    }
+
+    private void Badge_Click(object sender, RoutedEventArgs e)
+    {
+        var err = BadgeRegistration.RegisterElevated();
+        BadgeStatusText.Text = err is null
+            ? "UAC prompt opened — accept it to register the badge handler, then Explorer restarts. " +
+              "Reopen Settings afterwards to confirm it says On ✓."
+            : $"Could not start the registration step: {err}";
+    }
+
+    private void BadgeOff_Click(object sender, RoutedEventArgs e)
+    {
+        var err = BadgeRegistration.UnregisterElevated();
+        BadgeStatusText.Text = err is null
+            ? "UAC prompt opened — accept it to remove the badge handler; Explorer restarts and badges disappear."
+            : $"Could not start the removal step: {err}";
     }
 
     private void RefreshBoxes()
