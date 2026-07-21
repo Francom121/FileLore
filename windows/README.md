@@ -63,6 +63,18 @@ bookmark, displayName, relativePathHint` are never renamed or removed).
 - Tray menu → **Keyboard Shortcuts…** lists every shortcut/interaction and
   always reflects the current bindings.
 
+## Explorer badges (optional, off by default)
+
+Noted files can show a **small FileLore badge in Explorer**, like
+OneDrive's status icons. Tray menu → **Settings…** → **Show badges in
+Explorer** — a one-time step that asks for admin rights **once** (Windows
+only registers icon overlays machine-wide; everything else in FileLore
+stays per-user and admin-free). The badge appears/disappears the moment a
+note is saved or deleted — no manual refresh. Turn it off again from the
+same Settings panel, or during uninstall. If too many other apps
+(cloud-sync tools) have grabbed Windows' ~15 overlay slots, Settings says
+so and tells you what to remove.
+
 ## Where notes work
 
 - **Local NTFS drives (C:, D:, …): yes.** That's every normal Windows PC,
@@ -136,6 +148,34 @@ bookmark, displayName, relativePathHint` are never renamed or removed).
   `FileLore.SingleInstance.Paths`, one UTF-8 line per path, ack per line).
 - Shell thumbnails via `IShellItemImageFactory` P/Invoke (`ShellThumbnail`) —
   no NuGet packages.
+- **Explorer overlay badge (0.7.0):** `src/FileLore.Overlay/` — a tiny
+  no-ATL C++ `IShellIconOverlayIdentifier` (`FileLoreOverlay.dll`, ~200
+  lines, `/MT` static CRT → zero dependencies inside explorer.exe; deps:
+  kernel32/ole32/advapi32 only). `IsMemberOf` replicates
+  `NoteIndex.HasNoteStream`'s `FindFirstStreamW(":filelore.note:$DATA")`
+  check in native code; `GetPriority` returns 0; registered (opt-in,
+  elevated — the `ShellIconOverlayIdentifiers` enumeration key is
+  HKLM-only) under the key name **` FileLore` with ONE leading space**
+  (OneDrive's alphabetical-priority convention, so we survive the ~15
+  overlay limit). Build both arches with
+  `src/FileLore.Overlay/build-overlay.cmd` (needs VS Build Tools:
+  VCTools workload + `VC.Tools.ARM64` + Windows 11 SDK — install via
+  `vs_BuildTools.exe --quiet --wait`; no winget in the VM).
+  App side: `BadgeRegistration.cs` (status + read-only slot check +
+  `runas`-verb launch of `tools/Register-FileLoreOverlay.cmd` /
+  `Unregister-FileLoreOverlay.cmd`, which write the HKLM keys, fire
+  `SHCNE_ASSOCCHANGED`, and restart Explorer); the CLSID
+  `{7F3C1A2E-9B4D-4E5F-A6C7-1D2E3F4A5B6C}` is shared between the C++ and
+  C#. Live refresh: `ShellBadgeRefresh.cs` hooks `NoteEvents` →
+  `SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW)` + **debounced
+  `Shell.Application` window `Refresh()` on every open Explorer window
+  showing the noted file's folder**. Measured on Win11 23H2: the
+  SHChangeNotify alone makes a NEW badge appear (via the folder's
+  change-notification revalidation) but NEVER removes one —
+  `SHCNF_PATHW`/`SHCNF_IDLIST`/`FLUSHNOWAIT`/`SHCNE_ATTRIBUTES`/
+  `SHCNE_UPDATEDIR`/same-path `SHCNE_RENAMEITEM` all fail to make Explorer
+  re-run `IsMemberOf` for an already-displayed item; only a real folder
+  refresh (F5 / `IWebBrowserApp.Refresh()`) does.
 - Headless verification (all write PASS/FAIL lines to the result file,
   exit code 0 = pass):
   - `FileLore.exe --selftest <resultFile> <path> <body> <tagsCsv>` — save round-trip

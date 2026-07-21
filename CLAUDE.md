@@ -15,7 +15,7 @@ Three deliverables in one repo:
 | Deliverable | Status | Location |
 |---|---|---|
 | macOS app (Swift/SwiftUI/AppKit) | shipped v1 | `FileLore/`, `FileLoreFinderSync/`, `FileLoreQuickLook/`, `TetherCore/`, `FileLore.xcodeproj` |
-| Windows app (C# WPF, .NET 8) | v0.6.0 | `windows/` |
+| Windows app (C# WPF, .NET 8) | v0.7.0 | `windows/` |
 | Marketing site (React+TS+Vite+Tailwind+shadcn) | built, not yet publicly deployed | `website/` |
 
 Primary use case: attaching AI-generation prompts, model info, and reference
@@ -236,7 +236,7 @@ the real count is 76.)
 
 ---
 
-## 5. Windows app (`windows/`, v0.6.0)
+## 5. Windows app (`windows/`, v0.7.0)
 
 - `src/FileLore.Core/` — net8.0 library: `Note.cs` (System.Text.Json with the
   additive link keys), `NoteStore.cs` (ADS read/write + `IsSupportedPath`
@@ -265,9 +265,30 @@ the real count is 76.)
   `--tray` autostart stays silent. Startup/busy feedback is the animated
   `SplashWindow` (never covers the first-run single-file extraction/JIT —
   that precedes any WPF window).
-- Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.6.0"`,
+- Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.7.0"`,
   `BuildDate`) — also bump `<Version>` in `FileLore.App.csproj` and the
   hardcoded string at the top of `tools/Install-FileLore.cmd`.
+- **Explorer overlay badge (0.7.0):** `src/FileLore.Overlay/` — no-ATL C++
+  `IShellIconOverlayIdentifier` DLL (`/MT` static CRT, deps only
+  kernel32/ole32/advapi32, x64+ARM64 via `build-overlay.cmd`; CLSID
+  `{7F3C1A2E-9B4D-4E5F-A6C7-1D2E3F4A5B6C}` shared with
+  `BadgeRegistration.cs`). `IsMemberOf` = native port of
+  `NoteIndex.HasNoteStream`. Opt-in from Settings ("Show badges in
+  Explorer"): HKLM registration is the app's ONE elevated step
+  (`tools/Register-FileLoreOverlay.cmd` via ShellExecute `runas`), key name
+  ` FileLore` with ONE leading space (alphabetical priority vs the ~15
+  overlay limit, OneDrive convention); `GetPriority` returns 0. Settings
+  also shows a read-only slot-position warning when >14 handlers push us
+  out. Live refresh (`ShellBadgeRefresh.cs`, hooked to `NoteEvents`):
+  `SHCNE_UPDATEITEM` + debounced `Shell.Application` `Refresh()` on open
+  Explorer windows showing the noted file's folder — **measured on Win11
+  23H2: every SHChangeNotify variant (PATHW/IDLIST/FLUSHNOWAIT/ATTRIBUTES/
+  UPDATEDIR/same-path RENAMEITEM) fails to make Explorer re-run IsMemberOf
+  for an already-displayed item; only a folder refresh (F5 /
+  IWebBrowserApp.Refresh) does.** New badges appear via the folder's
+  change-notification revalidation; removals need the Refresh() path.
+  Uninstaller offers the elevated unregistration first (Explorer holds the
+  DLL mapped until restarted).
 
 ### Installer (`windows/tools/Install-FileLore.cmd`)
 
@@ -405,12 +426,28 @@ text via UIA), `edit-and-save.ps1` (UIA tag edit + Save in the editor),
   `C:\FileLoreTest` (this is also the Windows app's default search root).
 - The VM has **no H.264 decoder** — MediaElement video playback can't be
   verified there; video UI verification needs the user's real Intel PC.
+- **The display sleeps on battery (~5 min) and the GDI framebuffer FREEZES**
+  — in-session screenshots (`CopyFromScreen`) then return the last frame
+  forever (byte-identical PNGs look like "nothing happened"). Fix once:
+  `powercfg /change monitor-timeout-dc 0` (+`-ac 0`); wake before captures
+  by jiggling the cursor (`SetCursorPos` loop). Telltale: two screenshots
+  with identical sha256.
+- **`robocopy /MIR` re-syncs wipe `out\` build dirs** (the Mac side has
+  none) — either rebuild after each sync or add `/XD bin obj out`.
+- `runas-fm.ps1 -Payload` chokes on payloads containing spaces through
+  prlctl argv — point it at a `.cmd` on the share whose path has no spaces.
+- VS Build Tools 2022 (MSVC 14.44, x64+ARM64, Win11 SDK 10.0.22621) are
+  now installed at `C:\Program Files (x86)\Microsoft Visual Studio\2022\
+  BuildTools` (installed via `vs_BuildTools.exe --quiet --wait`; the VM
+  has no winget).
 
 **Deploy to the VM:** `taskkill /f /im FileLore.exe` → copy new exe → relaunch
 tray via the schtasks pattern above.
 
-**Release zip:** self-contained win-x64 `FileLore.exe` + `Install-FileLore.cmd`
-+ `Uninstall-FileLore.cmd` + `FileLore-Diagnose.cmd` + `README-WINDOWS.txt`
+**Release zip:** self-contained win-x64 `FileLore.exe` + `FileLoreOverlay.dll`
++ `Install-FileLore.cmd` + `Uninstall-FileLore.cmd` +
+`Register-FileLoreOverlay.cmd` + `Unregister-FileLoreOverlay.cmd` +
+`FileLore-Diagnose.cmd` + `README-WINDOWS.txt`
 (assets in `windows/dist-assets/`) → `website/public/downloads/FileLore-Windows-x64.zip`
 (that directory is gitignored; stale duplicate folders there are Finder junk).
 
@@ -482,7 +519,7 @@ start.
 | xattr names + legacy fallback | `TetherCore/.../NoteStore.swift` | ✅ |
 | ADS stream name, IsSupportedPath, FindFirstStreamW | `windows/src/FileLore.Core/*.cs` | ✅ |
 | Additive link keys path/size/added | `windows/src/FileLore.Core/Note.cs` | ✅ |
-| Windows version 0.6.0 | `AppVersion.cs` + csproj `<Version>` | ✅ |
+| Windows version 0.7.0 | `AppVersion.cs` + csproj `<Version>` | ✅ |
 | Selftest names | `SelfTest.cs` dispatch switch | ✅ |
 | Ctrl+Alt+T / Ctrl+Alt+F defaults | `Settings.cs` (`DefaultOpenSelection`/`DefaultSearch`) | ✅ |
 | VM "Windows 11" running, dotnet 8.0.423 | `prlctl list` + `prlctl exec … dotnet --version` | ✅ |
