@@ -14,7 +14,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Product>FileLore</Product>
     <Description>FileLore — sticky notes for your files (Windows)</Description>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
   </PropertyGroup>
 
   <!-- Avoid System.Windows.Forms global usings clashing with WPF types

@@ -13,10 +13,10 @@ namespace FileLore.App;
 internal static class AppVersion
 {
     /// <summary>Semantic version. Keep in sync with the csproj &lt;Version&gt;.</summary>
-    public const string Number = "0.6.0";
+    public const string Number = "0.7.0";
 
     /// <summary>Build date stamp (yyyy-MM-dd) of the release this source produced.</summary>
-    public const string BuildDate = "2026-07-21";
+    public const string BuildDate = "2026-07-23";
 
     /// <summary>Short label, e.g. "FileLore 0.6.0" (tray menu, installer echo).</summary>
     public const string Display = "FileLore " + Number;

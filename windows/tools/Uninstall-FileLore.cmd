@@ -21,6 +21,28 @@ REM 1. Stop the running per-user copy only (never other installs).
 powershell -NoProfile -Command "$t=$env:LOCALAPPDATA+'\FileLore\FileLore.exe'; Get-Process FileLore -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $t } | Stop-Process -Force" >nul 2>&1
 echo   [OK] App stopped
 
+REM 1.5 If Explorer badges were enabled, undo that FIRST (the HKLM key
+REM     needs admin, and Explorer must release the DLL before we delete it).
+set "BADGEREG=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ShellIconOverlayIdentifiers\ FileLore"
+reg query "%BADGEREG%" >nul 2>&1
+if not errorlevel 1 (
+    echo   Explorer badges are enabled ^(HKLM registration found^).
+    if "%QUIET%"=="1" (
+        echo   Removing badge registration elevated...
+        powershell -NoProfile -Command "Start-Process cmd.exe -Verb RunAs -Wait -ArgumentList '/c','\"%DEST%\Unregister-FileLoreOverlay.cmd\" /q'" >nul 2>&1
+    ) else (
+        choice /c YN /n /m "   Remove it now? One admin prompt, then Explorer restarts. (Y/N) "
+        if errorlevel 2 (
+            echo   Kept - badges stay on until you run
+            echo   Unregister-FileLoreOverlay.cmd as administrator.
+        ) else (
+            powershell -NoProfile -Command "Start-Process cmd.exe -Verb RunAs -Wait -ArgumentList '/c','\"%DEST%\Unregister-FileLoreOverlay.cmd\" /q'" >nul 2>&1
+        )
+    )
+    reg query "%BADGEREG%" >nul 2>&1
+    if errorlevel 1 (echo   [OK] Badge registration removed) else (echo   [WARN] Badge registration still present)
+)
+
 REM 2. Remove the right-click verb and the autostart entry.
 reg delete "HKCU\Software\Classes\*\shell\FileLore" /f >nul 2>&1
 reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v FileLore /f >nul 2>&1
@@ -31,8 +53,11 @@ del /f /q "%USERPROFILE%\Desktop\FileLore.lnk" >nul 2>&1
 del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\FileLore.lnk" >nul 2>&1
 echo   [OK] Shortcuts removed
 
-REM 4. Remove the app binary; keep user data unless you say otherwise.
+REM 4. Remove the app binary + badge add-on; keep user data unless you say otherwise.
 del /f /q "%EXE%" >nul 2>&1
+del /f /q "%DEST%\FileLoreOverlay.dll" >nul 2>&1
+del /f /q "%DEST%\Register-FileLoreOverlay.cmd" >nul 2>&1
+del /f /q "%DEST%\Unregister-FileLoreOverlay.cmd" >nul 2>&1
 echo   [OK] App removed from %DEST%
 
 if exist "%DEST%\settings.json" (

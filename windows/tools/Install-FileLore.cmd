@@ -6,7 +6,7 @@ REM  and HKCU. Usage:
 REM    Install-FileLore.cmd       interactive (pauses at the end)
 REM    Install-FileLore.cmd /q    scripted (no pause)
 REM
-REM  VERSION: keep "0.6.0" below in sync with AppVersion.cs
+REM  VERSION: keep "0.7.0" below in sync with AppVersion.cs
 REM  (src/FileLore.App/AppVersion.cs) when cutting a new build.
 REM ============================================================
 setlocal EnableExtensions
@@ -20,7 +20,7 @@ set "EXE=%DEST%\FileLore.exe"
 
 echo.
 echo   FileLore - sticky notes for your files
-echo   Installing FileLore 0.6.0 for %USERNAME% ^(no admin needed^)...
+echo   Installing FileLore 0.7.0 for %USERNAME% ^(no admin needed^)...
 echo.
 
 if not exist "%SRC%" (
@@ -49,7 +49,7 @@ REM 1. Stop a running per-user copy (upgrade case). Any other copy
 REM    of FileLore.exe on this PC is left alone.
 powershell -NoProfile -Command "$t=$env:LOCALAPPDATA+'\FileLore\FileLore.exe'; Get-Process FileLore -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $t } | Stop-Process -Force" >nul 2>&1
 
-REM 2. Copy the app.
+REM 2. Copy the app (+ Explorer-badge add-on files when present).
 if not exist "%DEST%" mkdir "%DEST%"
 copy /y "%SRC%" "%EXE%" >nul
 if errorlevel 1 (
@@ -57,6 +57,14 @@ if errorlevel 1 (
     goto :fail
 )
 echo   [OK] App copied to %EXE%
+for %%F in (FileLoreOverlay.dll Register-FileLoreOverlay.cmd Unregister-FileLoreOverlay.cmd) do (
+    if exist "%~dp0%%F" copy /y "%~dp0%%F" "%DEST%\%%F" >nul
+)
+if exist "%DEST%\FileLoreOverlay.dll" (
+    echo   [OK] Explorer-badge add-on copied ^(off by default - enable
+    echo        it later: FileLore tray -^> Settings -^> "Show badges
+    echo        in Explorer", the one step that asks for admin once^)
+)
 
 REM 3. Right-click verb "FileLore Note" for every file.
 call :regset "HKCU\Software\Classes\*\shell\FileLore" "" "FileLore Note" "Right-click verb label (FileLore Note)"
