@@ -9,12 +9,19 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <RootNamespace>FileLore.App</RootNamespace>
-    <AssemblyName>FileLore</AssemblyName>
+    <!-- 0.7.1: the published exe is FileLoreApp.exe; the tiny native
+         launcher in src/FileLore.Launcher ships as FileLore.exe and shows
+         the branded "getting ready" window while this app starts. -->
+    <AssemblyName>FileLoreApp</AssemblyName>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Product>FileLore</Product>
     <Description>FileLore — sticky notes for your files (Windows)</Description>
-    <Version>0.7.0</Version>
+    <Version>0.7.1</Version>
+    <!-- Ahead-of-time compile the managed assemblies inside the single-file
+         bundle: cuts the JIT warmup jank right after the window first shows.
+         (Costs ~40% extra exe size; still one file.) -->
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <!-- Avoid System.Windows.Forms global usings clashing with WPF types

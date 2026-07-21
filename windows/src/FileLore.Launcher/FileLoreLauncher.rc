@@ -1,0 +1,32 @@
+// FileLoreLauncher.rc — icon + version resource for the native launcher.
+#include <windows.h>
+
+1 ICON "app.ico"
+
+1 VERSIONINFO
+FILEVERSION     0,7,1,0
+PRODUCTVERSION  0,7,1,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "FileLore"
+            VALUE "FileDescription",  "FileLore Launcher"
+            VALUE "FileVersion",      "0.7.1"
+            VALUE "InternalName",     "FileLore"
+            VALUE "OriginalFilename", "FileLore.exe"
+            VALUE "ProductName",      "FileLore"
+            VALUE "ProductVersion",   "0.7.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

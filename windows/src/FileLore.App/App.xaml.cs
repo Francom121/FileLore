@@ -16,13 +16,14 @@ namespace FileLore.App;
 /// including its own command-line argument — and opens ONE batch window
 /// for many files or the note editor for a single file.
 ///
-/// Command line:
-///   FileLore.exe [path]            open the editor for path (no path: open the drop zone)
-///   FileLore.exe --tray            start tray-only, no balloon (autostart)
-///   FileLore.exe --version [outFile]  print the version + build date and exit
+/// Command line (the shipped binary is FileLoreApp.exe; the native
+/// FileLore.exe launcher simply forwards its own arguments to it):
+///   FileLoreApp.exe [path]            open the editor for path (no path: open the drop zone)
+///   FileLoreApp.exe --tray            start tray-only, no balloon (autostart)
+///   FileLoreApp.exe --version [outFile]  print the version + build date and exit
 ///                                    (optional file target for diagnostics)
-///   FileLore.exe --hotkey-open-selection   dev hook: run the note-selection handler
-///   FileLore.exe --selftest …      headless verification (see SelfTest)
+///   FileLoreApp.exe --hotkey-open-selection   dev hook: run the note-selection handler
+///   FileLoreApp.exe --selftest …      headless verification (see SelfTest)
 /// </summary>
 public partial class App : Application
 {
