@@ -1,4 +1,5 @@
 import AppKit
+import TetherCore
 
 /// Central app delegate: global hotkey (default ⌥T), Services menu handler,
 /// and robust incoming-URL routing (Finder Sync `filelore://` links, Dock-icon drops).
@@ -155,9 +156,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async {
             // Dropping several files at once (or `open -a FileLore a b c`) opens
             // one batch editor instead of N single editors.
-            let fileURLs = urls.filter(\.isFileURL)
-            if fileURLs.count > 1 {
-                WindowRouter.shared.openBatchEditor(for: fileURLs)
+            if case .batch(let batchURLs) = IntakeRouter.decide(urls: urls.filter(\.isFileURL)) {
+                WindowRouter.shared.openBatchEditor(for: batchURLs)
                 return
             }
             for url in urls {
@@ -185,20 +185,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Handles the "Open FileLore Note" service from Finder's right-click →
     /// Services / Quick Actions menu (and any app that sends filenames).
+    /// A multi-file selection opens the batch editor (same note + tags applied
+    /// to every file) instead of only the first file's editor.
     @objc func openFileLoreNoteService(
         _ pboard: NSPasteboard,
         userData: String?,
         error: AutoreleasingUnsafeMutablePointer<NSString?>
     ) {
         let urls = Self.fileURLs(from: pboard)
-        guard let first = urls.first else {
+        guard !urls.isEmpty else {
             error.pointee = "No file was provided to the Open FileLore Note service." as NSString
             return
         }
         // Stamp like any other open request: when the Service launched the
         // app, the launch-time drop-zone logic must stay out of the way.
         noteOpenRequest()
-        WindowRouter.shared.openNoteEditor(for: first)
+        switch IntakeRouter.decide(urls: urls) {
+        case .batch(let batchURLs):
+            WindowRouter.shared.openBatchEditor(for: batchURLs)
+        case .single(let fileURL):
+            WindowRouter.shared.openNoteEditor(for: fileURL)
+        case .none:
+            break // Unreachable: urls is non-empty, so the decision can't be .none.
+        }
     }
 
     private static func fileURLs(from pboard: NSPasteboard) -> [URL] {
@@ -234,7 +243,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Hotkey handler: reads Finder's current selection via AppleScript and opens
-    /// the note editor for the first selected file.
+    /// the note editor for it — a multi-file selection opens the batch editor
+    /// (same note + tags applied to every selected file).
     func openNoteForFinderSelection() {
         guard !NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").isEmpty else {
             WindowRouter.shared.openMainWindow()
@@ -248,9 +258,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Self.fetchFinderSelection { [weak self] result in
             switch result {
             case .success(let paths):
-                if let path = paths.first {
-                    WindowRouter.shared.openNoteEditor(for: URL(fileURLWithPath: path))
-                } else {
+                switch IntakeRouter.decide(paths: paths) {
+                case .single(let fileURL):
+                    WindowRouter.shared.openNoteEditor(for: fileURL)
+                case .batch(let batchURLs):
+                    WindowRouter.shared.openBatchEditor(for: batchURLs)
+                case .none:
                     WindowRouter.shared.openMainWindow()
                     self?.showAlert(
                         title: "No File Selected in Finder",

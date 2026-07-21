@@ -221,6 +221,9 @@ final class FinderSync: FIFinderSync {
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
         DebugLog.log("menu requested: kind = \(menuKind.rawValue) (\(FinderSync.describe(menuKind)))")
         let menu = NSMenu(title: "")
+        // One item for both cases: a single file opens its note editor; a
+        // multi-selection opens the batch editor (same note + tags applied
+        // to every selected file).
         let item = NSMenuItem(
             title: "Add/Edit FileLore Note",
             action: #selector(openFileLoreNote(_:)),
@@ -228,19 +231,6 @@ final class FinderSync: FIFinderSync {
         )
         item.target = self
         menu.addItem(item)
-
-        // Multi-selection gets a batch item: the file list is handed to the
-        // app through a JSON file in this container's tmp dir.
-        let selectionCount = FIFinderSyncController.default().selectedItemURLs()?.count ?? 0
-        if selectionCount > 1 {
-            let batchItem = NSMenuItem(
-                title: "Batch Tag with FileLore…",
-                action: #selector(batchTagWithFileLore(_:)),
-                keyEquivalent: ""
-            )
-            batchItem.target = self
-            menu.addItem(batchItem)
-        }
         return menu
     }
 
@@ -283,14 +273,20 @@ final class FinderSync: FIFinderSync {
         if urls.isEmpty, let target = controller.targetedURL() {
             urls = [target]
         }
-        guard let fileURL = urls.first else { return }
 
-        var components = URLComponents()
-        components.scheme = "filelore"
-        components.host = "open"
-        components.queryItems = [URLQueryItem(name: "path", value: fileURL.path(percentEncoded: false))]
-        if let url = components.url {
-            Self.openInContainerApp(url)
+        switch IntakeRouter.decide(urls: urls) {
+        case .none:
+            return
+        case .single(let fileURL):
+            var components = URLComponents()
+            components.scheme = "filelore"
+            components.host = "open"
+            components.queryItems = [URLQueryItem(name: "path", value: fileURL.path(percentEncoded: false))]
+            if let url = components.url {
+                Self.openInContainerApp(url)
+            }
+        case .batch(let batchURLs):
+            handOffBatch(batchURLs)
         }
     }
 
@@ -299,9 +295,7 @@ final class FinderSync: FIFinderSync {
     /// (unsandboxed) main app reads the file back (`BatchRequestLoader`) and
     /// opens the batch editor; this keeps arbitrarily long file lists out of
     /// the URL itself.
-    @IBAction func batchTagWithFileLore(_ sender: AnyObject?) {
-        guard let urls = FIFinderSyncController.default().selectedItemURLs(), urls.count > 1 else { return }
-
+    private func handOffBatch(_ urls: [URL]) {
         let ref = "filelore-batch-\(UUID().uuidString).json"
         let fileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
             .appendingPathComponent(ref, isDirectory: false)
