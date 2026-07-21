@@ -18,9 +18,9 @@ internal static class AppVersion
     /// <summary>Build date stamp (yyyy-MM-dd) of the release this source produced.</summary>
     public const string BuildDate = "2026-07-21";
 
-    /// <summary>Short label, e.g. "FileLore 0.5.0" (tray menu, installer echo).</summary>
+    /// <summary>Short label, e.g. "FileLore 0.6.0" (tray menu, installer echo).</summary>
     public const string Display = "FileLore " + Number;
 
-    /// <summary>Full label with build date, e.g. "FileLore 0.5.0 (build 2026-07-20)".</summary>
+    /// <summary>Full label with build date, e.g. "FileLore 0.6.0 (build 2026-07-21)".</summary>
     public const string Full = Display + " (build " + BuildDate + ")";
 }

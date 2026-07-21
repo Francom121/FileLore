@@ -19,8 +19,10 @@ bookmark, displayName, relativePathHint` are never renamed or removed).
   a ~1.5 s debounce collects them into ONE batch window. Set / Append the
   body, Add / Replace tags, Apply — with per-file results and a summary
   ("5 notes updated, 1 skipped (network path)").
-- **Drop zone:** tray menu → **New note / batch…** — one file opens the
-  editor, several open the batch window. Dropping a file onto the Desktop
+- **Drop zone:** launching FileLore with no file argument opens it (a
+  second bare launch just raises it), or use tray menu → **New note /
+  batch…** — one file opens the editor, several open the batch window.
+  Dropping a file onto the Desktop
   shortcut works too (Windows passes it as the exe's argument → editor).
 - **Note the file you're looking at:** select it in Explorer and press
   **Ctrl+Alt+T**. Nothing selected? You get a file picker instead.
@@ -78,10 +80,13 @@ bookmark, displayName, relativePathHint` are never renamed or removed).
 - **First launch can take up to a minute** (one-time self-extraction +
   Windows scan); later launches are fast.
 - **An animated FileLore splash** (brand-orange spinner + logo) appears
-  whenever the app is working before a window can show — cold start, and
-  the ~1.5 s pause while a multi-select batch is collected — so a quiet
-  moment never looks like a hang. It fades out the instant the editor,
-  batch window or tray is ready.
+  whenever the app is busy before a window can show — in-process startup
+  work (tray, hotkeys, pipe setup), and the ~1.5 s pause while a
+  multi-select batch is collected — so a quiet moment never looks like a
+  hang. It fades out the instant the editor, batch window or drop zone is
+  ready. The splash cannot cover the very first launch's one-time
+  self-extraction and CLR/JIT warmup, which happen before any WPF window
+  can exist — that first run still takes a moment before anything shows.
 - **The search window updates live:** saving a note (tags, body, links —
   from the editor or a batch run) immediately updates open search results
   and tag chips; deleting a note removes its row. No Refresh needed.

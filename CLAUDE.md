@@ -259,7 +259,12 @@ the real count is 76.)
 - Explorer multi-select → Explorer spawns one process per file; instances 2..N
   forward paths to the first instance over named pipe
   `FileLore.SingleInstance.Paths` (`InstanceMessenger.cs`) + ~1.5 s debounce →
-  ONE batch window.
+  ONE batch window. The pipe also carries `CMD SHOW-DROPZONE`: launching with
+  no arguments opens the drop zone (first instance) or raises it on the
+  already-running instance (second instance exits after sending the command);
+  `--tray` autostart stays silent. Startup/busy feedback is the animated
+  `SplashWindow` (never covers the first-run single-file extraction/JIT —
+  that precedes any WPF window).
 - Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.6.0"`,
   `BuildDate`) — also bump `<Version>` in `FileLore.App.csproj` and the
   hardcoded string at the top of `tools/Install-FileLore.cmd`.

@@ -17,7 +17,7 @@ namespace FileLore.App;
 /// for many files or the note editor for a single file.
 ///
 /// Command line:
-///   FileLore.exe [path]            open the editor for path (or start tray)
+///   FileLore.exe [path]            open the editor for path (no path: open the drop zone)
 ///   FileLore.exe --tray            start tray-only, no balloon (autostart)
 ///   FileLore.exe --version [outFile]  print the version + build date and exit
 ///                                    (optional file target for diagnostics)
@@ -94,31 +94,32 @@ public partial class App : Application
 
             SetupTray();
             SetupHotkeys();
-            InstanceMessenger.StartServer(EnqueuePath);
+            InstanceMessenger.StartServer(EnqueuePath, OnInstanceCommand);
             if (path is not null)
             {
                 EnqueuePath(path); // own arg joins the same debounce batch as piped paths
             }
             else if (!trayOnly)
             {
-                _tray!.ShowBalloonTip(6000, "FileLore",
-                    "FileLore is running — right-click any file to attach a note.",
-                    WinForms.ToolTipIcon.Info);
-                // Let the splash play a beat so it reads as "started", then hand
-                // over to the tray balloon.
-                var linger = new System.Windows.Threading.DispatcherTimer
-                {
-                    Interval = TimeSpan.FromSeconds(1.5),
-                };
-                linger.Tick += (_, _) => { linger.Stop(); CloseSplash(); };
-                linger.Start();
+                // No-arg launch = "I want to make a note": open the drop zone
+                // (idempotent — the tray "New note / batch…" item uses the
+                // same method). The window IS the feedback, so no tray
+                // balloon; close the splash as the drop zone shows (the
+                // fade-out covers its first layout pass).
+                ShowDropZone();
+                CloseSplash();
             }
         }
         else
         {
             if (path is null)
             {
-                Shutdown(); // tray already running elsewhere; nothing to do
+                // Second instance launched bare (not --tray autostart):
+                // raise the drop zone on the first instance — same UX as a
+                // no-arg first launch — instead of exiting silently.
+                if (!trayOnly)
+                    InstanceMessenger.TrySendCommand(CommandShowDropZone);
+                Shutdown();
                 return;
             }
             // Explorer multi-select: forward our file to the first instance
@@ -170,6 +171,20 @@ public partial class App : Application
     }
 
     // ---- path collection (single-file → editor, many → batch window) -------------
+
+    /// <summary>Pipe command raised by a second instance launched with no arguments.</summary>
+    private const string CommandShowDropZone = "SHOW-DROPZONE";
+
+    /// <summary>
+    /// Command handler for <see cref="InstanceMessenger"/> (background pipe
+    /// thread → marshal to the UI thread). A second instance launched bare
+    /// asks us to raise the drop zone instead of exiting silently.
+    /// </summary>
+    private void OnInstanceCommand(string command)
+    {
+        if (command == CommandShowDropZone)
+            Dispatcher.BeginInvoke(() => ShowDropZone());
+    }
 
     private void EnqueuePath(string path)
     {
@@ -239,7 +254,13 @@ public partial class App : Application
     /// </summary>
     internal void ShowSplash(string message)
     {
-        if (_splash is { IsLoaded: true, IsFadingOut: false })
+        // Reuse guard deliberately does NOT require IsLoaded: a queued
+        // ShowSplash (EnqueuePath → Dispatcher.BeginInvoke at Normal
+        // priority) can run BEFORE the first splash's Loaded event fires;
+        // requiring IsLoaded then spawned a second splash and orphaned the
+        // first (Topmost over the editor until the 25 s failsafe).
+        // UpdateMessage writes the text block directly and works pre-Loaded.
+        if (_splash is { IsFadingOut: false })
         {
             _splash.UpdateMessage(message);
             return;
