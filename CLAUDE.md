@@ -15,7 +15,7 @@ Three deliverables in one repo:
 | Deliverable | Status | Location |
 |---|---|---|
 | macOS app (Swift/SwiftUI/AppKit) | shipped v1 | `FileLore/`, `FileLoreFinderSync/`, `FileLoreQuickLook/`, `TetherCore/`, `FileLore.xcodeproj` |
-| Windows app (C# WPF, .NET 8) | v0.5.0 | `windows/` |
+| Windows app (C# WPF, .NET 8) | v0.6.0 | `windows/` |
 | Marketing site (React+TS+Vite+Tailwind+shadcn) | built, not yet publicly deployed | `website/` |
 
 Primary use case: attaching AI-generation prompts, model info, and reference
@@ -236,7 +236,7 @@ the real count is 76.)
 
 ---
 
-## 5. Windows app (`windows/`, v0.5.0)
+## 5. Windows app (`windows/`, v0.6.0)
 
 - `src/FileLore.Core/` — net8.0 library: `Note.cs` (System.Text.Json with the
   additive link keys), `NoteStore.cs` (ADS read/write + `IsSupportedPath`
@@ -260,7 +260,7 @@ the real count is 76.)
   forward paths to the first instance over named pipe
   `FileLore.SingleInstance.Paths` (`InstanceMessenger.cs`) + ~1.5 s debounce →
   ONE batch window.
-- Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.5.0"`,
+- Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.6.0"`,
   `BuildDate`) — also bump `<Version>` in `FileLore.App.csproj` and the
   hardcoded string at the top of `tools/Install-FileLore.cmd`.
 
@@ -462,7 +462,7 @@ start.
 | xattr names + legacy fallback | `TetherCore/.../NoteStore.swift` | ✅ |
 | ADS stream name, IsSupportedPath, FindFirstStreamW | `windows/src/FileLore.Core/*.cs` | ✅ |
 | Additive link keys path/size/added | `windows/src/FileLore.Core/Note.cs` | ✅ |
-| Windows version 0.5.0 | `AppVersion.cs` + csproj `<Version>` | ✅ |
+| Windows version 0.6.0 | `AppVersion.cs` + csproj `<Version>` | ✅ |
 | Selftest names | `SelfTest.cs` dispatch switch | ✅ |
 | Ctrl+Alt+T / Ctrl+Alt+F defaults | `Settings.cs` (`DefaultOpenSelection`/`DefaultSearch`) | ✅ |
 | VM "Windows 11" running, dotnet 8.0.423 | `prlctl list` + `prlctl exec … dotnet --version` | ✅ |

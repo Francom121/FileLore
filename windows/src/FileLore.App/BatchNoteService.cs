@@ -79,6 +79,7 @@ public static class BatchNoteService
 
                     NoteStore.Write(path, note);
                     Recents.Add(path);
+                    NoteEvents.RaiseChanged(path);
                     result = new BatchFileResult(path, Succeeded: true, Skipped: false, Reason: null);
                 }
                 catch (Exception ex)

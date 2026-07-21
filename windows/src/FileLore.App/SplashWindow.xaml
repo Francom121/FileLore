@@ -1,0 +1,115 @@
+<Window x:Class="FileLore.App.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False" Topmost="True" ResizeMode="NoResize"
+        ShowActivated="False" SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterScreen" Opacity="0"
+        FontFamily="Segoe UI"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        Title="FileLore">
+
+  <!-- All motion lives here: spinner arcs, halo ripple, logo breathing and
+       the three status dots start together the moment the window loads. -->
+  <Window.Triggers>
+    <EventTrigger RoutedEvent="Window.Loaded">
+      <BeginStoryboard>
+        <Storyboard>
+          <DoubleAnimation Storyboard.TargetName="SpinRotate" Storyboard.TargetProperty="Angle"
+                           From="0" To="360" Duration="0:0:1.4" RepeatBehavior="Forever"/>
+          <DoubleAnimation Storyboard.TargetName="SpinRotate2" Storyboard.TargetProperty="Angle"
+                           From="360" To="0" Duration="0:0:2.6" RepeatBehavior="Forever"/>
+
+          <DoubleAnimation Storyboard.TargetName="HaloScale" Storyboard.TargetProperty="ScaleX"
+                           From="1" To="1.18" Duration="0:0:1.8" RepeatBehavior="Forever"/>
+          <DoubleAnimation Storyboard.TargetName="HaloScale" Storyboard.TargetProperty="ScaleY"
+                           From="1" To="1.18" Duration="0:0:1.8" RepeatBehavior="Forever"/>
+          <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity"
+                           From="0.85" To="0" Duration="0:0:1.8" RepeatBehavior="Forever"/>
+
+          <DoubleAnimation Storyboard.TargetName="LogoScale" Storyboard.TargetProperty="ScaleX"
+                           From="1" To="1.06" Duration="0:0:1.2" AutoReverse="True" RepeatBehavior="Forever"/>
+          <DoubleAnimation Storyboard.TargetName="LogoScale" Storyboard.TargetProperty="ScaleY"
+                           From="1" To="1.06" Duration="0:0:1.2" AutoReverse="True" RepeatBehavior="Forever"/>
+
+          <DoubleAnimation Storyboard.TargetName="Dot1" Storyboard.TargetProperty="Opacity"
+                           From="0.25" To="1" Duration="0:0:0.45" AutoReverse="True" RepeatBehavior="Forever"/>
+          <DoubleAnimation Storyboard.TargetName="Dot2" Storyboard.TargetProperty="Opacity"
+                           From="0.25" To="1" BeginTime="0:0:0.2" Duration="0:0:0.45" AutoReverse="True" RepeatBehavior="Forever"/>
+          <DoubleAnimation Storyboard.TargetName="Dot3" Storyboard.TargetProperty="Opacity"
+                           From="0.25" To="1" BeginTime="0:0:0.4" Duration="0:0:0.45" AutoReverse="True" RepeatBehavior="Forever"/>
+        </Storyboard>
+      </BeginStoryboard>
+    </EventTrigger>
+  </Window.Triggers>
+
+  <!-- Outer margin leaves room for the drop shadow on the transparent window. -->
+  <Border Margin="26" CornerRadius="20" BorderBrush="#F2E3C6" BorderThickness="1">
+    <Border.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FFFFFF" Offset="0"/>
+        <GradientStop Color="#FDF3E3" Offset="1"/>
+      </LinearGradientBrush>
+    </Border.Background>
+    <Border.Effect>
+      <DropShadowEffect Color="#000000" Opacity="0.28" BlurRadius="26" ShadowDepth="5" Direction="270"/>
+    </Border.Effect>
+
+    <StackPanel Margin="44,32,44,26" HorizontalAlignment="Center">
+
+      <Grid Width="124" Height="124" HorizontalAlignment="Center">
+        <!-- expanding ripple behind everything -->
+        <Ellipse x:Name="Halo" Width="112" Height="112" Stroke="#F5DDB4" StrokeThickness="2"
+                 RenderTransformOrigin="0.5,0.5">
+          <Ellipse.RenderTransform>
+            <ScaleTransform x:Name="HaloScale"/>
+          </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <!-- main spinner arc, brand-orange gradient (dash lengths are in
+             multiples of the stroke thickness) -->
+        <Ellipse Width="104" Height="104" StrokeThickness="5"
+                 StrokeDashArray="25 62" StrokeDashCap="Round"
+                 RenderTransformOrigin="0.5,0.5">
+          <Ellipse.Stroke>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Color="#EB961E" Offset="0"/>
+              <GradientStop Color="#F6C468" Offset="1"/>
+            </LinearGradientBrush>
+          </Ellipse.Stroke>
+          <Ellipse.RenderTransform>
+            <RotateTransform x:Name="SpinRotate"/>
+          </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <!-- slower counter-rotating inner arc in the darker brand brown -->
+        <Ellipse Width="86" Height="86" StrokeThickness="3" Stroke="#B07417" Opacity="0.5"
+                 StrokeDashArray="18 87" StrokeDashCap="Round"
+                 RenderTransformOrigin="0.5,0.5">
+          <Ellipse.RenderTransform>
+            <RotateTransform x:Name="SpinRotate2"/>
+          </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <Image Source="pack://application:,,,/Resources/icon-256.png" Width="54" Height="54"
+               RenderTransformOrigin="0.5,0.5">
+          <Image.RenderTransform>
+            <ScaleTransform x:Name="LogoScale"/>
+          </Image.RenderTransform>
+        </Image>
+      </Grid>
+
+      <TextBlock Text="FileLore" FontSize="20" FontWeight="SemiBold" Foreground="#444444"
+                 HorizontalAlignment="Center" Margin="0,16,0,0"/>
+      <TextBlock x:Name="MessageText" Text="Getting things ready…" FontSize="12.5" Foreground="#8A8A84"
+                 HorizontalAlignment="Center" Margin="0,4,0,0"/>
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+        <Ellipse x:Name="Dot1" Width="7" Height="7" Fill="#EB961E" Opacity="0.25" Margin="0,0,6,0"/>
+        <Ellipse x:Name="Dot2" Width="7" Height="7" Fill="#EB961E" Opacity="0.25" Margin="0,0,6,0"/>
+        <Ellipse x:Name="Dot3" Width="7" Height="7" Fill="#EB961E" Opacity="0.25"/>
+      </StackPanel>
+
+    </StackPanel>
+  </Border>
+</Window>

@@ -6,7 +6,7 @@ REM  and HKCU. Usage:
 REM    Install-FileLore.cmd       interactive (pauses at the end)
 REM    Install-FileLore.cmd /q    scripted (no pause)
 REM
-REM  VERSION: keep "0.5.0" below in sync with AppVersion.cs
+REM  VERSION: keep "0.6.0" below in sync with AppVersion.cs
 REM  (src/FileLore.App/AppVersion.cs) when cutting a new build.
 REM ============================================================
 setlocal EnableExtensions
@@ -20,7 +20,7 @@ set "EXE=%DEST%\FileLore.exe"
 
 echo.
 echo   FileLore - sticky notes for your files
-echo   Installing FileLore 0.5.0 for %USERNAME% ^(no admin needed^)...
+echo   Installing FileLore 0.6.0 for %USERNAME% ^(no admin needed^)...
 echo.
 
 if not exist "%SRC%" (

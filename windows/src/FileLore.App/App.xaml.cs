@@ -35,6 +35,7 @@ public partial class App : Application
     private DropZoneWindow? _dropZone;
     private SettingsWindow? _settingsWindow;
     private ShortcutsWindow? _shortcutsWindow;
+    private SplashWindow? _splash;
 
     // Debounce collector for paths arriving via the pipe / command line.
     private readonly object _pendingGate = new();
@@ -82,6 +83,15 @@ public partial class App : Application
         if (firstInstance)
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown; // tray keeps app alive
+
+            // Cold start is the "looks frozen" window: JIT + tray/hotkey/pipe
+            // setup + the 1.5 s multi-select debounce all happen before any
+            // window appears. Put the animated splash up first so there is
+            // visible feedback the whole time. Tray autostart at login stays
+            // silent — a splash on every logon would be noise.
+            if (!trayOnly)
+                ShowSplash(path is null ? "Starting FileLore…" : "Getting your note ready…");
+
             SetupTray();
             SetupHotkeys();
             InstanceMessenger.StartServer(EnqueuePath);
@@ -94,6 +104,14 @@ public partial class App : Application
                 _tray!.ShowBalloonTip(6000, "FileLore",
                     "FileLore is running — right-click any file to attach a note.",
                     WinForms.ToolTipIcon.Info);
+                // Let the splash play a beat so it reads as "started", then hand
+                // over to the tray balloon.
+                var linger = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(1.5),
+                };
+                linger.Tick += (_, _) => { linger.Stop(); CloseSplash(); };
+                linger.Start();
             }
         }
         else
@@ -155,14 +173,22 @@ public partial class App : Application
 
     private void EnqueuePath(string path)
     {
+        int pending;
         lock (_pendingGate)
         {
             if (!_pendingPaths.Contains(path, StringComparer.OrdinalIgnoreCase))
                 _pendingPaths.Add(path);
+            pending = _pendingPaths.Count;
             _pendingTimer?.Dispose();
             _pendingTimer = new System.Threading.Timer(_ => FlushPendingPaths(), null,
                 CollectWindow, System.Threading.Timeout.InfiniteTimeSpan);
         }
+        // The debounce window means nothing visible happens for ~1.5 s after
+        // the user right-clicks a file — cover it with the animated splash
+        // (also when the paths arrive over the pipe while the tray idles).
+        Dispatcher.BeginInvoke(() => ShowSplash(pending > 1
+            ? $"Collecting {pending} selected files…"
+            : "Getting your note ready…"));
     }
 
     private void FlushPendingPaths()
@@ -193,6 +219,7 @@ public partial class App : Application
         var window = new MainWindow(path);
         window.Show();
         window.Activate();
+        CloseSplash(); // the fade-out covers the editor's first layout pass
     }
 
     internal void OpenBatch(IReadOnlyList<string> paths)
@@ -200,7 +227,29 @@ public partial class App : Application
         var window = new BatchWindow(paths);
         window.Show();
         window.Activate();
+        CloseSplash();
     }
+
+    // ---- loading splash --------------------------------------------------------
+
+    /// <summary>
+    /// Shows (or updates) the animated branded splash. Reused for every
+    /// "work is happening but no window is up yet" gap: cold start, and the
+    /// Explorer multi-select debounce. Call on the UI thread.
+    /// </summary>
+    internal void ShowSplash(string message)
+    {
+        if (_splash is { IsLoaded: true, IsFadingOut: false })
+        {
+            _splash.UpdateMessage(message);
+            return;
+        }
+        _splash = new SplashWindow(message);
+        _splash.Closed += (_, _) => _splash = null;
+        _splash.Show();
+    }
+
+    internal void CloseSplash() => _splash?.FadeOutAndClose();
 
     internal void ShowDropZone()
     {

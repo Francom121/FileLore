@@ -45,6 +45,7 @@ public static class NoteEditorService
 
         NoteStore.Write(path, note);
         Recents.Add(path);
+        NoteEvents.RaiseChanged(path);
         return note;
     }
 }
