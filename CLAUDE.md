@@ -370,13 +370,25 @@ C:\dotnet\dotnet.exe publish C:\filelore\src\FileLore.App\FileLore.App.csproj ^
 ```
 
 **Run a GUI app as the desktop user** (prlctl exec is session-0 SYSTEM; use
-schtasks to get an interactive `fm` session):
+Task Scheduler to get an interactive `fm` session). **2026-07-20 gotcha:
+schtasks-created tasks NEVER RUN in this VM** — schtasks defaults to
+`DisallowStartIfOnBatteries=true` and the VM reports as on-battery (task
+queues, instance "launched", action never starts; service restart + VM
+reboot don't help). Use the PowerShell ScheduledTasks module with
+`-AllowStartIfOnBatteries -DontStopIfGoingOnBatteries` instead — helper:
+`.scratch/vm/runas-fm.ps1` (registers an Interactive-principal task as fm
+and starts it):
 
-```bat
-schtasks /create /tn T /tr "C:\path\FileLore.exe" /sc once /st 00:00 /ru fm /it /f
-schtasks /run /tn T
-schtasks /delete /tn T /f
+```sh
+prlctl exec "Windows 11" powershell -NoProfile -ExecutionPolicy Bypass \
+  -File "\\Mac\Home\Documents\Tether\.scratch\vm\runas-fm.ps1" \
+  -TaskName T1 -Payload '"C:\path\FileLore.exe"'
 ```
+
+More in-session helpers in `.scratch/vm/`: `splash-watch.ps1` (window
+watcher + screenshots), `search-dump.ps1` (raise window by title + dump its
+text via UIA), `edit-and-save.ps1` (UIA tag edit + Save in the editor),
+`shot.ps1` (console-hidden screenshot).
 
 **Screenshots:** use the in-session `windows/tools/front-capture.ps1` —
 `prlctl capture` shows a stale framebuffer.
@@ -385,6 +397,9 @@ schtasks /delete /tn T /f
 
 **VM quirks:**
 
+- The VM **auto-pauses** ("Pause Windows when possible") after ~1 min idle —
+  `prlctl resume "Windows 11"` and run `prlctl exec` in the SAME shell
+  command, or it pauses again between calls.
 - Parallels Shared Profile makes fm's Documents/Downloads **Mac network
   folders** (non-NTFS → notes unsupported there). Test notes on
   `C:\FileLoreTest` (this is also the Windows app's default search root).

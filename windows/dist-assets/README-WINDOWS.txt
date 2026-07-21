@@ -39,8 +39,9 @@ Use it
 - Ctrl+Alt+T  opens a note for the file selected in Explorer
 - Ctrl+Alt+F  searches all your notes
 - Drop files onto the Desktop shortcut, or onto the drop zone
-  (tray menu -> "New note / batch…"): one file opens its note,
-  several open the batch window.
+  (double-click the Desktop shortcut, or tray menu ->
+  "New note / batch…"): one file opens its note, several open
+  the batch window.
 
 Inside the note editor
 ----------------------
