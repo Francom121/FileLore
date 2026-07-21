@@ -17,6 +17,14 @@ struct RecentFilesMenu: View {
 
     var body: some View {
         Group {
+            // Start a note from the menu bar: raises the single-instance drop
+            // zone (the app's landing window for picking/dropping a file).
+            Button("New Note…") {
+                WindowRouter.shared.openMainWindow()
+            }
+
+            Divider()
+
             Section("Pinned Tags") {
                 if pinnedStore.pinned.isEmpty {
                     Text("No pinned tags")
