@@ -1,0 +1,71 @@
+name: Bug report
+description: Something isn't working in FileLore
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which app are you running?
+      options:
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: >-
+        Mac: FileLore menu → About. Windows: tray menu (shown above Exit),
+        or run `FileLoreApp.exe --version`.
+      placeholder: e.g. 1.1.0 (Mac) / 0.7.1 (Windows)
+    validations:
+      required: true
+  - type: dropdown
+    id: file-location
+    attributes:
+      label: Where does the affected file live?
+      description: >-
+        Notes live in filesystem metadata (xattr on macOS, NTFS ADS on
+        Windows), so many edge cases depend on the volume type.
+      options:
+        - Local internal drive
+        - External / USB drive
+        - iCloud Drive (Mac)
+        - Network share / mapped drive
+        - Other (explain below)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Select a file in Finder/Explorer
+        2. Press ⌥T / Ctrl+Alt+T
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened?
+      description: Include error messages or screenshots if you have them.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (optional)
+      description: >-
+        On Windows, running FileLore-Diagnose.cmd writes
+        FileLore-Diagnose.txt to your Desktop — paste or attach it here.
+        On Mac, any relevant Console.app output helps.

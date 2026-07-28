@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an idea for FileLore
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which app would this affect?
+      options:
+        - Both (macOS + Windows)
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the workflow or friction you're hitting.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like it to work?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Workarounds or other approaches you've tried.
+  - type: checkboxes
+    id: format-awareness
+    attributes:
+      label: One quick check
+      options:
+        - label: >-
+            I understand the note JSON format is cross-platform and can only
+            change additively (never rename or remove keys).
+          required: false
