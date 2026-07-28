@@ -17,6 +17,7 @@ Package.resolved
 website/node_modules/
 website/dist/
 website/public/downloads/
+website/public/releases/*.zip
 
 # Build scratch & Python cache
 .scratch/

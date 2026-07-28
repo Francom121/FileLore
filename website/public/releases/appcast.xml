@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>FileLore Updates</title>
+    <link>https://filelore.netlify.app/releases/appcast.xml</link>
+    <description>Most recent changes with links to updates for FileLore.</description>
+    <language>en</language>
+    <item>
+      <title>Version 1.1.0</title>
+      <description><![CDATA[
+        <h2>FileLore 1.1.0</h2>
+        <ul>
+          <li>Automatic updates via Sparkle — new versions install themselves with one click.</li>
+          <li>"Check for Updates…" added to the FileLore menu and the menu bar dropdown.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Tue, 28 Jul 2026 14:46:09 -0700</pubDate>
+      <sparkle:version>2</sparkle:version>
+      <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://filelore.netlify.app/releases/FileLore-1.1.0.zip"
+                 sparkle:edSignature="SHZfRUPEppeoq0JKT4o717jGbR/kgsWAFcs9zHwpw6Ri/+sPIwg/wWifIUtbcjlBJd+PLsN6X6bboYnmr09LBg=="
+                 length="4496653"
+                 type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>
