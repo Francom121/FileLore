@@ -368,6 +368,77 @@ First launch on a fresh machine: right-click → Open (Gatekeeper bypass for
 ad-hoc signature), then enable both extensions in System Settings → Privacy &
 Security → Extensions.
 
+### Auto-updates (Sparkle 2.x)
+
+The app ships Sparkle 2.9.4 (SPM package `sparkle-project/Sparkle`,
+`upToNextMajorVersion` from 2.0.0), linked ONLY into the app target — never
+into the QuickLook/FinderSync extensions. The app is NOT sandboxed, so Sparkle
+uses its standard integration (no XPC services).
+
+- `SUFeedURL` = `https://filelore.netlify.app/releases/appcast.xml`,
+  `SUPublicEDKey` = the EdDSA public key (both in `FileLore/Info.plist`).
+- Automatic periodic checks: Sparkle's default (on). Manual check:
+  "Check for Updates…" in the FileLore app menu (after About) and in the
+  menu-bar dropdown (above Quit). Both wired to
+  `FileLore/UpdaterController.swift` (`SPUStandardUpdaterController`).
+
+**Versioning scheme:** app `MARKETING_VERSION` (e.g. 1.1.0) +
+`CURRENT_PROJECT_VERSION` (integer build number, e.g. 2), set in the FileLore
+target's build settings; `FileLore/Info.plist` reads them via
+`$(MARKETING_VERSION)` / `$(CURRENT_PROJECT_VERSION)`. The QuickLook and
+FinderSync extensions hardcode the SAME version+build in their own
+Info.plists — bump all three together (Xcode warns otherwise). Sparkle
+compares `CFBundleVersion` (the integer).
+
+**EdDSA keys:** the private key lives in this Mac's login keychain
+("Private key for signing Sparkle updates", created by Sparkle's
+`generate_keys`). A backup copy is at `.scratch/sparkle/eddsa-private-key.pem`
+(gitignored — NEVER commit it). Losing the private key = existing users can
+never update again (signature verification would fail); you'd have to ship a
+manually-downloaded release with a new key pair. Note: `sign_update` reading
+the key from the keychain triggers a password prompt (the keychain ACL only
+trusts the unsigned `generate_keys` binary), so always sign with the key
+FILE: `sign_update <zip> .scratch/sparkle/eddsa-private-key.pem`.
+
+**Release runbook (Mac):**
+
+```sh
+# 1. Bump version: MARKETING_VERSION + CURRENT_PROJECT_VERSION in the FileLore
+#    target build settings (both configs), and the same values hardcoded in
+#    FileLoreQuickLook/Info.plist and FileLoreFinderSync/Info.plist.
+
+# 2. Build + deploy the Release build to /Applications (commands above).
+
+# 3. Zip the app (layout: FileLore.app at zip root):
+ditto -c -k --sequesterRsrc --keepParent FileLore.app FileLore-macOS.zip
+
+# 4. Sign the zip (Sparkle bin is under
+#    ~/Library/Developer/Xcode/DerivedData/FileLore-*/SourcePackages/artifacts/sparkle/Sparkle/bin):
+sign_update FileLore-macOS.zip .scratch/sparkle/eddsa-private-key.pem
+#    → prints sparkle:edSignature="..." length="..."
+
+# 5. Edit website/public/releases/appcast.xml: add an <item> with the new
+#    sparkle:version / sparkle:shortVersionString / edSignature / length.
+#    Copy the zip to website/public/releases/FileLore-<version>.zip and to
+#    website/public/downloads/FileLore-macOS.zip (front-page download).
+#    Update DOWNLOAD_SIZE in website/src/config.ts.
+
+# 6. Rebuild + restage the site zip, owner drags it to Netlify:
+cd website && npm run build
+cd dist && zip -qr ~/Desktop/FileLore-website.zip . \
+  -x 'downloads/FileLore-Windows-x64/*' 'downloads/FileLore-Windows-x64.zip' \
+     '.DS_Store' 'downloads/.DS_Store'
+
+# 7. Existing apps see the update within 24h (or via Check for Updates…).
+```
+
+Local end-to-end test (evidence in `.scratch/sparkle/`): serve a test appcast
+with `python3 -m http.server 8123` over a copy of `website/public/releases/`
+whose enclosure URL is rewritten to localhost, run an OLD build with
+`defaults write com.filelore.app SUFeedURL http://localhost:8123/releases/appcast.xml`,
+trigger Check for Updates…, install, confirm the relaunched version, then
+`defaults delete com.filelore.app SUFeedURL`.
+
 ---
 
 ## 7. Build / deploy — Windows via the Parallels bridge (CRITICAL cheat sheet)
