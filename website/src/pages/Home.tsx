@@ -7,6 +7,7 @@ import DemoVideo from "@/sections/DemoVideo"
 import DownloadCTA from "@/sections/DownloadCTA"
 import Support from "@/sections/Support"
 import Contact from "@/sections/Contact"
+import MoreApps from "@/sections/MoreApps"
 import Footer from "@/sections/Footer"
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
         <DownloadCTA />
         <Support />
         <Contact />
+        <MoreApps />
       </main>
       <Footer />
     </div>
