@@ -26,6 +26,13 @@ struct FileLoreApp: App {
                 Button("Search Notes…") { WindowRouter.shared.openSearch() }
                     .keyboardShortcut("f", modifiers: .command)
             }
+            // "Check for Updates…" in the standard spot: the FileLore app
+            // menu, right after About (Sparkle-powered).
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    UpdaterController.shared.checkForUpdates(nil)
+                }
+            }
             // The app ships no Help Book; the Help menu slot becomes the
             // keyboard-shortcut cheat sheet.
             CommandGroup(replacing: .help) {

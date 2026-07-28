@@ -62,6 +62,9 @@ struct RecentFilesMenu: View {
                 WindowRouter.shared.openSettings()
             }
             Button("Refresh") { reload() }
+            Button("Check for Updates…") {
+                UpdaterController.shared.checkForUpdates(nil)
+            }
             Button("Quit FileLore") { NSApp.terminate(nil) }
         }
         .onAppear {
