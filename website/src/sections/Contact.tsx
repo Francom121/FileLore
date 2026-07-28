@@ -4,12 +4,6 @@ import { Mail, Send, CheckCircle2, AlertCircle } from "lucide-react"
 
 type Status = "idle" | "sending" | "sent" | "error"
 
-function encode(data: Record<string, string>) {
-  return Object.keys(data)
-    .map((key) => encodeURIComponent(key) + "=" + encodeURIComponent(data[key]))
-    .join("&")
-}
-
 export default function Contact() {
   const [status, setStatus] = useState<Status>("idle")
   const [form, setForm] = useState({ name: "", email: "", message: "" })
@@ -18,10 +12,18 @@ export default function Contact() {
     e.preventDefault()
     setStatus("sending")
     try {
-      const res = await fetch("/", {
+      const res = await fetch("https://formsubmit.co/ajax/francom121@gmail.com", {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: encode({ "form-name": "contact", ...form }),
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          _subject: `FileLore contact — ${form.name}`,
+          _template: "table",
+          _captcha: "false",
+          _honey: "",
+          name: form.name,
+          email: form.email,
+          message: form.message,
+        }),
       })
       if (!res.ok) throw new Error(String(res.status))
       setStatus("sent")
@@ -60,18 +62,11 @@ export default function Contact() {
         ) : (
           <form
             name="contact"
-            method="POST"
-            data-netlify="true"
-            netlify-honeypot="bot-field"
             onSubmit={handleSubmit}
             className="mt-10 flex flex-col gap-4"
           >
-            <input type="hidden" name="form-name" value="contact" />
-            <p className="hidden">
-              <label>
-                Don't fill this out: <input name="bot-field" />
-              </label>
-            </p>
+            {/* FormSubmit honeypot: bots fill this, humans never see it */}
+            <input type="text" name="_honey" className="hidden" tabIndex={-1} autoComplete="off" />
             <div className="grid gap-4 sm:grid-cols-2">
               <input
                 required
