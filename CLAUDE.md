@@ -1,5 +1,12 @@
 # FileLore — Project Context for AI Assistants
 
+> **This repository is PUBLIC** (github.com/Francom121/FileLore). Everything in
+> it — including this file — is visible to anyone. The prlctl/VM cheat-sheet
+> (§7) is owner-machine-specific but harmless and useful; keep it.
+> **Never commit secrets**: no API keys of any kind (e.g. ElevenLabs-type
+> service keys), and never the Sparkle EdDSA **private** key (§6 — it lives in
+> the login keychain / `.scratch/sparkle/`, both gitignored).
+>
 > **Purpose of this file:** everything an AI coding assistant needs to work on
 > this repository cold — what exists, how it works, how to build/test/deploy,
 > and the hard-won gotchas. All facts below were verified against the repo and
@@ -16,7 +23,7 @@ Three deliverables in one repo:
 |---|---|---|
 | macOS app (Swift/SwiftUI/AppKit) | shipped v1 | `FileLore/`, `FileLoreFinderSync/`, `FileLoreQuickLook/`, `TetherCore/`, `FileLore.xcodeproj` |
 | Windows app (C# WPF, .NET 8) | v0.7.1 | `windows/` |
-| Marketing site (React+TS+Vite+Tailwind+shadcn) | built, not yet publicly deployed | `website/` |
+| Marketing site (React+TS+Vite+Tailwind+shadcn) | live at https://filelore.netlify.app | `website/` |
 
 Primary use case: attaching AI-generation prompts, model info, and reference
 links to generated media files.
@@ -26,7 +33,7 @@ links to generated media files.
 - Change note storage/format → `TetherCore/Sources/TetherCore/Note.swift` + `NoteStore.swift` (Mac) and `windows/src/FileLore.Core/Note.cs` + `NoteStore.cs` (Windows) — **always change both, additively**.
 - macOS app UI/behavior → `FileLore/*.swift` (one file per feature; names are self-describing).
 - Windows app UI/behavior → `windows/src/FileLore.App/` (WPF) — core logic in `windows/src/FileLore.Core/`.
-- In-repo docs: `README.md` (Mac product doc), `windows/README.md` (Windows product + dev doc), `SPEC.md` (original spec), `SHORTCUTS.md` (Mac shortcut cheat sheet).
+- In-repo docs: `README.md` (public front door — both platforms), `windows/README.md` (Windows product + dev doc), `SPEC.md` (original spec), `SHORTCUTS.md` (Mac shortcut cheat sheet), `CONTRIBUTING.md`, `SECURITY.md`.
 
 **What NOT to do (each of these has bitten someone):**
 
@@ -56,7 +63,7 @@ links to generated media files.
 │   │                               SearchEngine, BatchNoteService, MarkdownExporter,
 │   │                               MediaPaneView/MediaPreview/LetterboxedImageView,
 │   │                               ImageFitGeometry
-│   └── Tests/TetherCoreTests/      9 test files, 76 tests (swift-testing)
+│   └── Tests/TetherCoreTests/      10 test files, 84 tests (XCTest)
 ├── windows/
 │   ├── src/FileLore.Core/          net8.0 library: Note, NoteStore (ADS), NoteIndex
 │   │                               (FindFirstStreamW enumeration), NoteSearch,
@@ -72,7 +79,7 @@ links to generated media files.
 │   ├── src/config.ts               download URLs/sizes, DONATE_URL (ko-fi placeholder)
 │   └── public/                     screenshots/, filelore-demo.mp4, downloads/ (gitignored)
 ├── tools/make_menubar_icon.py      generates the branded quill menu-bar icon
-├── README.md                       Mac product doc (architecture, usage, limitations)
+├── README.md                       public repo front door (features, format, build, both platforms)
 ├── SPEC.md                         original product spec (written under the name "Tether")
 ├── SHORTCUTS.md                    Mac keyboard-shortcut cheat sheet
 ├── logo.png                        source logo (app icon, badge glyph, site assets derive from it)
@@ -228,11 +235,11 @@ Verified state: `pluginkit -m | grep -i filelore` shows both appexes with `+`.
 ### Tests
 
 ```sh
-cd TetherCore && swift test     # 76 tests, 0 failures (verified)
+cd TetherCore && swift test     # 84 tests, 0 failures (verified, XCTest)
 ```
 
-(Note: `README.md`'s build-order checklist still says "51 unit tests" — stale;
-the real count is 76.)
+(The pre-rewrite root `README.md` said "51 unit tests" — long stale; the
+public README now states the correct count.)
 
 ---
 
@@ -558,8 +565,7 @@ the VM is for build/smoke only.
   `template-info.md` records Node 20, Tailwind v3.4.19, Vite v7.2.4, shadcn
   theme with 40+ components). Stock Vite `README.md` is still the template's.
 - Sections live in `src/sections/`; all site constants (download URLs + sizes,
-  `DONATE_URL` = `https://ko-fi.com/REPLACE_ME` placeholder to replace before
-  shipping) live in `src/config.ts`.
+  `DONATE_URL` = `https://ko-fi.com/filelore`) live in `src/config.ts`.
 - `public/screenshots/` are real captures from the live app;
   `public/filelore-demo.mp4` exists and is embedded by `src/sections/DemoVideo.tsx`
   (a better user-recorded video may replace it — see roadmap).
@@ -581,7 +587,7 @@ start.
 
 - Repo root = workspace root; single branch `main`; short imperative commit
   messages (e.g. `a7bf586 Fix stray drop-zone windows on Finder open/Services/URL routes`).
-- **Current HEAD (verified):** `7a80167 Windows: version visibility, hardened installer, FileLore-Diagnose remote diagnostics` (2026-07-20).
+- **Current HEAD (verified):** `028f01a Docs: Sparkle release runbook, versioning scheme, EdDSA key handling` (2026-07-21).
 - Recent history (oldest→newest themes): Mac M1 core + extensions → search/batch/
   export → rename Tether→FileLore (`bd101e2`) → badges/menu-bar/pinned-tags →
   media peek + marketing site → drop-zone fix (`a7bf586`) → Windows M1 proof →
@@ -596,8 +602,9 @@ start.
 
 1. **M4 (Windows):** code signing (SmartScreen), modern Win11 top-level context
    menu via MSIX, slimmer installer.
-2. **Public site deploy:** needs hosting account + domain; replace
-   `DONATE_URL` ko-fi placeholder in `website/src/config.ts`.
+2. **Public site deploy: DONE** — live at https://filelore.netlify.app
+   (owner drags the built zip to Netlify; see §6 runbook). The ko-fi URL in
+   `website/src/config.ts` is set to `https://ko-fi.com/filelore`.
 3. **Demo video:** a demo mp4 is already embedded; the user may record a
    final one himself to replace `website/public/filelore-demo.mp4`.
 4. Possible: Windows Explorer badges, PDF preview on Windows, Mac↔Windows
@@ -609,7 +616,7 @@ start.
 
 | Claim | How verified | Result |
 |---|---|---|
-| 76 Swift tests | ran `cd TetherCore && swift test` | ✅ 76 passed, 0 failures |
+| 84 Swift tests (XCTest, 10 files) | ran `cd TetherCore && swift test` | ✅ 84 passed, 0 failures |
 | Bundle IDs, ad-hoc signing, macOS 15 target | grepped `project.pbxproj` | ✅ |
 | URL scheme `filelore` | `FileLore/Info.plist` | ✅ |
 | xattr names + legacy fallback | `TetherCore/.../NoteStore.swift` | ✅ |
@@ -621,11 +628,13 @@ start.
 | VM "Windows 11" running, dotnet 8.0.423 | `prlctl list` + `prlctl exec … dotnet --version` | ✅ |
 | Secure Boot off | `Confirm-SecureBootUEFI` → `False` | ✅ |
 | pluginkit state | `pluginkit -m` — FileLore appexes `+`, CleanMyMac5 FinderSync `-` | ✅ |
-| HEAD commit | `git log` → `7a80167` | ✅ |
+| HEAD commit | `git log` → `028f01a` | ✅ |
 
-**Corrections made vs the original brief:** (1) `README.md`'s "51 unit tests"
-is stale — actual 76. (2) The demo video is not purely pending —
+**Corrections made vs earlier versions of this file:** (1) test counts were
+repeatedly stale — the verified count is now **84 tests (XCTest, 10 files)**;
+the old root `README.md`'s "51 unit tests" is gone with the public rewrite.
+(2) The demo video is not purely pending —
 `website/public/filelore-demo.mp4` exists and is already embedded; the roadmap
 item is a *replacement* recording. (3) `JSONEncoder` uses no explicit date
 strategy — the seconds-since-2001 doubles come from the default
-`.deferredToDate`.
+`.deferredToDate`. (4) The marketing site is deployed, not pending.
