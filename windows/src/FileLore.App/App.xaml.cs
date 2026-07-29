@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using FileLore.Core;
+using Velopack;
 using WinForms = System.Windows.Forms;
 
 namespace FileLore.App;
@@ -36,7 +37,35 @@ public partial class App : Application
     private DropZoneWindow? _dropZone;
     private SettingsWindow? _settingsWindow;
     private ShortcutsWindow? _shortcutsWindow;
+    private UpdateWindow? _updateWindow;
     private SplashWindow? _splash;
+
+    /// <summary>
+    /// Explicit entry point (csproj StartupObject): Velopack MUST run before
+    /// any WPF startup so it can service its own lifecycle arguments —
+    /// --veloapp-install/-obsolete/-updated/-uninstall, forwarded headlessly
+    /// by the native FileLore.exe launcher (which is Velopack's mainExe).
+    /// The fast callbacks re-assert the Explorer verb / Run key on every
+    /// install and update, clean up legacy 0.7.x flat installs, and strip
+    /// our HKCU entries on uninstall (see ShellIntegration).
+    /// </summary>
+    [STAThread]
+    public static void Main()
+    {
+        VelopackApp.Build()
+            .OnAfterInstallFastCallback(ShellIntegration.Install)
+            .OnAfterUpdateFastCallback(ShellIntegration.Install)
+            .OnBeforeUninstallFastCallback(ShellIntegration.Uninstall)
+            .OnFirstRun(v => AppLog.Write($"velo first run: {v}"))
+            .OnRestarted(v => AppLog.Write($"velo restarted after update: {v}"))
+            .Run();
+
+        var app = new App();
+        app.InitializeComponent();
+        // StartupEventArgs.Args come from Environment.GetCommandLineArgs(),
+        // so OnStartup below works exactly as before.
+        app.Run();
+    }
 
     // Debounce collector for paths arriving via the pipe / command line.
     private readonly object _pendingGate = new();
@@ -101,6 +130,15 @@ public partial class App : Application
             SetupTray();
             SetupHotkeys();
             InstanceMessenger.StartServer(EnqueuePath, OnInstanceCommand);
+
+            // Auto-update: throttled silent background check (downloads only;
+            // Velopack applies the download on the next app start). Failures
+            // are logged and invisible — offline machines stay quiet.
+            _ = Updates.BackgroundCheckAsync(version => _tray?.ShowBalloonTip(8000,
+                "FileLore update ready",
+                $"FileLore {version} was downloaded and will be installed the next time FileLore starts.",
+                WinForms.ToolTipIcon.Info));
+
             if (path is not null)
             {
                 EnqueuePath(path); // own arg joins the same debounce batch as piped paths
@@ -330,6 +368,42 @@ public partial class App : Application
         _shortcutsWindow.Activate();
     }
 
+    // ---- updates (Velopack, 0.8.0+) ------------------------------------------
+
+    internal void ShowUpdateWindow()
+    {
+        if (_updateWindow is { IsLoaded: true })
+        {
+            _updateWindow.Activate();
+            return;
+        }
+        _updateWindow = new UpdateWindow();
+        _updateWindow.Closed += (_, _) => _updateWindow = null;
+        _updateWindow.Show();
+        _updateWindow.Activate();
+    }
+
+    /// <summary>
+    /// Cleans up the running instance (tray icon, pipe server) and hands the
+    /// process to Velopack, which swaps current\ to the downloaded version
+    /// and relaunches via the native FileLore.exe launcher — the branded
+    /// "getting ready" card covers the post-update cold start. No-op when
+    /// no downloaded update is pending.
+    /// </summary>
+    internal void ApplyUpdateAndRestart()
+    {
+        if (Updates.PendingRestartVersion() is null) return;
+        InstanceMessenger.StopServer();
+        _hotkeys?.Dispose();
+        if (_tray is not null)
+        {
+            _tray.Visible = false;
+            _tray.Dispose();
+            _tray = null;
+        }
+        Updates.ApplyPendingAndRestart(); // exits the process
+    }
+
     // ---- hotkeys ---------------------------------------------------------------
 
     private void SetupHotkeys()
@@ -456,6 +530,11 @@ public partial class App : Application
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Settings…", null, (_, _) => ShowSettingsWindow());
         menu.Items.Add("Keyboard Shortcuts…", null, (_, _) => ShowShortcutsWindow());
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("Check for Updates…", null, (_, _) => ShowUpdateWindow());
+        // Surfaced only when the background check already downloaded one.
+        if (Updates.PendingRestartVersion() is { } pendingVersion)
+            menu.Items.Add($"Restart to update to {pendingVersion}", null, (_, _) => ApplyUpdateAndRestart());
         menu.Items.Add(new WinForms.ToolStripSeparator());
         // Disabled version label so "which build am I on?" is answerable from the tray.
         menu.Items.Add(new WinForms.ToolStripMenuItem(AppVersion.Full) { Enabled = false });

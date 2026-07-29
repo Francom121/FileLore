@@ -1,7 +1,7 @@
 <Window x:Class="FileLore.App.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="480" Height="470" MinWidth="420" MinHeight="430"
+        Width="480" Height="560" MinWidth="420" MinHeight="520"
         WindowStartupLocation="CenterScreen"
         Background="#FAFAF8" FontFamily="Segoe UI" FontSize="13"
         Title="Settings — FileLore">
@@ -13,6 +13,9 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
@@ -53,10 +56,19 @@
     <TextBlock Grid.Row="5" x:Name="BadgeStatusText" Margin="2,2,0,0" FontSize="12" Foreground="#8A8A84"
                TextWrapping="Wrap" VerticalAlignment="Top"/>
 
-    <TextBlock Grid.Row="6" x:Name="StatusText" Margin="2,10,0,0" FontSize="12" Foreground="#8A8A84"
+    <!-- Updates (Velopack, 0.8.0+) -->
+    <TextBlock Grid.Row="6" Text="Updates" FontSize="16" FontWeight="SemiBold" Margin="2,22,0,4"/>
+    <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,0,0,4">
+      <Button Content="Check for Updates…" Click="Updates_Click" Padding="14,7"
+              Margin="0,0,10,0" Background="White" BorderBrush="#DDDDD6" Cursor="Hand"/>
+      <TextBlock x:Name="UpdateStatusText" FontSize="12" Foreground="#8A8A84"
+                 VerticalAlignment="Center" TextWrapping="Wrap"/>
+    </StackPanel>
+
+    <TextBlock Grid.Row="8" x:Name="StatusText" Margin="2,10,0,0" FontSize="12" Foreground="#8A8A84"
                TextWrapping="Wrap" VerticalAlignment="Top"/>
 
-    <StackPanel Grid.Row="7" Orientation="Horizontal">
+    <StackPanel Grid.Row="9" Orientation="Horizontal">
       <Button Content="Save" Click="Save_Click" Padding="16,7" Margin="0,0,8,0"
               Background="#EB961E" Foreground="White" FontWeight="SemiBold" Cursor="Hand"/>
       <Button Content="Reset to defaults" Click="Reset_Click" Padding="16,7" Margin="0,0,8,0"

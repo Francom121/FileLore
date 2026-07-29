@@ -9,15 +9,20 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <RootNamespace>FileLore.App</RootNamespace>
-    <!-- 0.7.1: the published exe is FileLoreApp.exe; the tiny native
+    <!-- 0.8.0: the published exe is FileLoreApp.exe; the tiny native
          launcher in src/FileLore.Launcher ships as FileLore.exe and shows
-         the branded "getting ready" window while this app starts. -->
+         the branded "getting ready" window while this app starts. The
+         launcher is also Velopack's mainExe (hooks are forwarded
+         headlessly to this app). -->
     <AssemblyName>FileLoreApp</AssemblyName>
+    <!-- Explicit App.Main (VelopackApp.Run must precede WPF startup), so
+         App.xaml compiles as a plain Page (keeps InitializeComponent, drops
+         the generated Main). -->
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Product>FileLore</Product>
     <Description>FileLore — sticky notes for your files (Windows)</Description>
-    <Version>0.7.1</Version>
+    <Version>0.8.0</Version>
     <!-- Ahead-of-time compile the managed assemblies inside the single-file
          bundle: cuts the JIT warmup jank right after the window first shows.
          (Costs ~40% extra exe size; still one file.) -->
@@ -34,6 +39,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FileLore.Core\FileLore.Core.csproj" />
+    <!-- Velopack (MIT) auto-update framework: UpdateManager + lifecycle
+         hooks. Keep this version in sync with the vpk CLI used to pack
+         releases (see "Velopack release runbook" in windows/README.md). -->
+    <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
   </ItemGroup>
 
   <ItemGroup>

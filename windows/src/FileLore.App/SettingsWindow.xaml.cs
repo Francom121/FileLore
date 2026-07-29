@@ -27,9 +27,22 @@ public partial class SettingsWindow : Window
         (_open, _search) = Settings.LoadHotkeys();
         RefreshBoxes();
         RefreshBadgePanel();
+        RefreshUpdatePanel();
         // Re-check when the user comes back from the elevated helper.
-        Activated += (_, _) => RefreshBadgePanel();
+        Activated += (_, _) => { RefreshBadgePanel(); RefreshUpdatePanel(); };
     }
+
+    // ---- Updates (Velopack, 0.8.0+) -------------------------------------------
+
+    private void RefreshUpdatePanel()
+    {
+        UpdateStatusText.Text = Updates.PendingRestartVersion() is { } pending
+            ? $"{AppVersion.Full} — {pending} is downloaded and installs on the next restart."
+            : $"{AppVersion.Full} — updates install automatically.";
+    }
+
+    private void Updates_Click(object sender, RoutedEventArgs e) =>
+        ((App)Application.Current).ShowUpdateWindow();
 
     // ---- Explorer badges (opt-in, one-time admin step) ----------------------
 
