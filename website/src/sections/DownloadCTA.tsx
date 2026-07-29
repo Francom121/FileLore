@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_URL, DOWNLOAD_URL_DIAGNOSE, DOWNLOAD_URL_WINDOWS } from "@/config"
+import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_SIZE_WINDOWS_ARM64, DOWNLOAD_URL, DOWNLOAD_URL_DIAGNOSE, DOWNLOAD_URL_WINDOWS, DOWNLOAD_URL_WINDOWS_ARM64 } from "@/config"
 import { Download, FolderDown, MousePointerClick, ShieldCheck, PanelTop, Trash2 } from "lucide-react"
 
 const macSteps = [
@@ -28,13 +28,13 @@ const macSteps = [
 const windowsSteps = [
   {
     icon: FolderDown,
-    title: "Unzip the download",
-    body: "Extract FileLore-Windows-x64.zip anywhere — Downloads is fine.",
+    title: "Run the Setup",
+    body: "Double-click FileLore-Windows-Setup-x64.exe — no admin needed. If SmartScreen appears: More info → Run anyway.",
   },
   {
     icon: ShieldCheck,
-    title: "Run Install-FileLore.cmd",
-    body: "Double-click it — no admin needed. If SmartScreen appears: More info → Run anyway. First launch can take up to a minute (one-time extraction); later launches are fast.",
+    title: "Updates are automatic",
+    body: "FileLore checks for updates in the background and applies them on restart. Tray menu → Check for Updates… anytime.",
   },
   {
     icon: MousePointerClick,
@@ -44,7 +44,7 @@ const windowsSteps = [
   {
     icon: Trash2,
     title: "Uninstall anytime",
-    body: "Run the included Uninstall-FileLore.cmd — it removes the app and keeps your notes.",
+    body: "Windows Settings → Apps → FileLore → Uninstall — removes the app and keeps your notes.",
   },
 ]
 
@@ -120,7 +120,18 @@ export default function DownloadCTA() {
         <p className="relative mt-4 text-[13px] text-white/45">
           Free · Mac {DOWNLOAD_SIZE} zip · macOS 26 or later
           <span className="mx-2 text-white/25">|</span>
-          Windows {DOWNLOAD_SIZE_WINDOWS} zip · Windows 10/11 x64
+          Windows {DOWNLOAD_SIZE_WINDOWS} Setup · Windows 10/11 x64
+        </p>
+        <p className="relative mt-2 text-[13px] text-white/45">
+          Windows on ARM?{" "}
+          <a
+            href={DOWNLOAD_URL_WINDOWS_ARM64}
+            download
+            className="font-medium text-fl-300 underline decoration-fl-300/40 underline-offset-2 hover:text-fl-200"
+          >
+            Get the arm64 Setup
+          </a>{" "}
+          ({DOWNLOAD_SIZE_WINDOWS_ARM64})
         </p>
 
         {/* How to install */}
