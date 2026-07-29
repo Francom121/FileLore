@@ -148,7 +148,8 @@ xcodebuild -project FileLore.xcodeproj -scheme FileLore -configuration Release \
 Then copy `FileLore.app` from the build products directory to `/Applications`.
 The app is **ad-hoc signed** (no Apple Developer account needed), so:
 
-1. First launch: right-click → **Open** (one-time Gatekeeper bypass).
+1. First launch: macOS blocks the unsigned app — go to **System Settings →
+   Privacy & Security** and click **Open Anyway** (one time only).
 2. Enable the two extensions once: **System Settings → Privacy & Security →
    Extensions** → FileLore (Finder Extensions + Quick Look).
 

@@ -10,8 +10,8 @@ const macSteps = [
   },
   {
     icon: MousePointerClick,
-    title: "Right-click → Open",
-    body: "On first launch only, right-click the app and choose Open — a one-time Gatekeeper bypass (FileLore is ad-hoc signed).",
+    title: "Allow it once",
+    body: "On first launch macOS will say it can't verify FileLore (it's unsigned). Go to System Settings → Privacy & Security, scroll down, and click \"Open Anyway\" — one time only.",
   },
   {
     icon: ShieldCheck,
