@@ -667,12 +667,13 @@ start.
 
 - Repo root = workspace root; single branch `main`; short imperative commit
   messages (e.g. `a7bf586 Fix stray drop-zone windows on Finder open/Services/URL routes`).
-- **Current HEAD (verified):** `028f01a Docs: Sparkle release runbook, versioning scheme, EdDSA key handling` (2026-07-21).
+- **Current HEAD (verified):** `f446a85 Docs: Velopack architecture, release runbook, VM feed-testing cheat sheet` (2026-07-28).
 - Recent history (oldest→newest themes): Mac M1 core + extensions → search/batch/
   export → rename Tether→FileLore (`bd101e2`) → badges/menu-bar/pinned-tags →
   media peek + marketing site → drop-zone fix (`a7bf586`) → Windows M1 proof →
   M2 editor/tray → M3 search/hotkeys → netpath guard → x64 release → M5 Mac
-  parity (`bbd23d9`) → installer/diagnostics hardening (HEAD).
+  parity (`bbd23d9`) → installer/diagnostics hardening → Windows 0.8.0 Velopack
+  auto-update + Setup distribution (`f446a85` series).
 - Implementation is done by Kimi Work subagents; the user tests by hand
   (Mac GUI + real Intel Windows PC). Keep changes surgical and verified; the
   user is the QA gate.
@@ -716,7 +717,7 @@ start.
 | VM "Windows 11" running, dotnet 8.0.423 | `prlctl list` + `prlctl exec … dotnet --version` | ✅ |
 | Secure Boot off | `Confirm-SecureBootUEFI` → `False` | ✅ |
 | pluginkit state | `pluginkit -m` — FileLore appexes `+`, CleanMyMac5 FinderSync `-` | ✅ |
-| HEAD commit | `git log` → `028f01a` | ✅ |
+| HEAD commit | `git log` → `f446a85` | ✅ |
 
 **Corrections made vs earlier versions of this file:** (1) test counts were
 repeatedly stale — the verified count is now **84 tests (XCTest, 10 files)**;
