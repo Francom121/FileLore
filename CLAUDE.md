@@ -22,7 +22,7 @@ Three deliverables in one repo:
 | Deliverable | Status | Location |
 |---|---|---|
 | macOS app (Swift/SwiftUI/AppKit) | shipped v1 | `FileLore/`, `FileLoreFinderSync/`, `FileLoreQuickLook/`, `TetherCore/`, `FileLore.xcodeproj` |
-| Windows app (C# WPF, .NET 8) | v0.7.1 | `windows/` |
+| Windows app (C# WPF, .NET 8) | v0.8.0 | `windows/` |
 | Marketing site (React+TS+Vite+Tailwind+shadcn) | live at https://filelore.netlify.app | `website/` |
 
 Primary use case: attaching AI-generation prompts, model info, and reference
@@ -243,7 +243,7 @@ public README now states the correct count.)
 
 ---
 
-## 5. Windows app (`windows/`, v0.7.1)
+## 5. Windows app (`windows/`, v0.8.0)
 
 - **Two-exe layout (0.7.1):** the shipped `FileLore.exe` is a tiny native
   Win32 **launcher** (`src/FileLore.Launcher/`, ~200 KB, no ATL/MFC, `/MT`
@@ -257,6 +257,10 @@ public README now states the correct count.)
   (EnumWindows by PID) → fade out; app exits windowless (single-instance
   forward) → close; 5-min failsafe. `--tray` = launch + exit immediately;
   `--version`/`-v`/`--selftest` = wait + propagate exit code, no card.
+  Since 0.8.0 the launcher is also **Velopack's mainExe**: any
+  `--veloapp-*` arg → headless pass-through (wait + propagate exit code),
+  so install/update/uninstall hooks run through it while post-install and
+  post-update relaunches get the branded card for free.
   Installer: right-click verb + shortcuts → launcher; Run-key autostart →
   `FileLoreApp.exe --tray` DIRECTLY (no card at login). The WPF app is
   `<AssemblyName>FileLoreApp</AssemblyName>` and publishes with
@@ -267,8 +271,9 @@ public README now states the correct count.)
   friendly guard), `NoteIndex.cs` (`FindFirstStreamW`/`FindNextStreamW` stream
   enumeration for search), `NoteSearch.cs`, `LinkResolver.cs`,
   `MarkdownExporter.cs` (mirrors the Mac exporter's shape).
-- `src/FileLore.App/` — WPF `net8.0-windows`, **zero NuGet packages**, references
-  only FileLore.Core. Self-contained single-file publish. Features: editor with
+- `src/FileLore.App/` — WPF `net8.0-windows`, **one NuGet package** (Velopack
+  1.2.0 for auto-update — the zero-dependency era ended with 0.8.0), references
+  only FileLore.Core otherwise. Self-contained single-file publish. Features: editor with
   media peek (`MediaElement` video/audio, WIC images, `IShellItemImageFactory`
   shell-thumbnail fallback for e.g. PSD; **no inline PDF** — documented gap),
   linked files UI, batch window + drop zone, templates, per-note + batch
@@ -289,9 +294,9 @@ public README now states the correct count.)
   `--tray` autostart stays silent. Startup/busy feedback is the animated
   `SplashWindow` (never covers the first-run single-file extraction/JIT —
   that precedes any WPF window; the native launcher card covers that gap).
-- Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.7.1"`,
+- Version source of truth: `src/FileLore.App/AppVersion.cs` (`Number = "0.8.0"`,
   `BuildDate`) — also bump `<Version>` in `FileLore.App.csproj`, the
-  hardcoded string at the top of `tools/Install-FileLore.cmd`, and the
+  hardcoded string at the top of `tools/Install-FileLore.cmd` (legacy), and the
   VERSIONINFO in `src/FileLore.Launcher/FileLoreLauncher.rc`.
 - **Explorer overlay badge (0.7.0):** `src/FileLore.Overlay/` — no-ATL C++
   `IShellIconOverlayIdentifier` DLL (`/MT` static CRT, deps only
@@ -315,10 +320,54 @@ public README now states the correct count.)
   Uninstaller offers the elevated unregistration first (Explorer holds the
   DLL mapped until restarted).
 
-### Installer (`windows/tools/Install-FileLore.cmd`)
+### Auto-update (0.8.0, Velopack — MIT license)
+
+- **Layout:** packId `FileLore` → `%LOCALAPPDATA%\FileLore\` (same folder the
+  app already used for settings — intentional). `Update.exe` + `current\`
+  (launcher `FileLore.exe` = Velopack mainExe, `FileLoreApp.exe`,
+  `FileLoreOverlay.dll`, Register/Unregister cmds, `sq.version`) +
+  `packages\`. `current\` is a STABLE path across updates → HKCU verb,
+  Run-key autostart and HKLM overlay registration never need re-pointing.
+- **Hooks** (`VelopackApp.Build()` in the explicit `App.Main`; App.xaml must
+  be a **Page**, not an ApplicationDefinition, or the compiler generates a
+  duplicate `Main` → CS0111 — setting `<StartupObject>` alone does NOT fix
+  it): after install/update `ShellIntegration.Install` (idempotent)
+  rewrites the verb + Run key, **rescues `settings.json`/`recents.json`
+  from Velopack's rollback dir** (Setup WIPES the install folder on
+  install-over-legacy; the hook runs BEFORE the rollback dir is deleted —
+  verified in the migration test), cleans legacy 0.7.x flat files; before
+  uninstall it removes verb + Run value.
+- **Feed (self-hosted static HTTPS, officially supported):**
+  `https://filelore.netlify.app/releases/win-x64/` and `.../win-arm64/`,
+  each with `releases.win.json` + legacy `RELEASES` +
+  `FileLore-x.y.z-full.nupkg` (+ delta nupkgs once a second release exists —
+  deltas are plain files, so static hosting suffices). The app picks the
+  dir by `RuntimeInformation.ProcessArchitecture`; `FILELORE_UPDATE_URL`
+  env var overrides it (testing). Mac feed for comparison:
+  `/releases/appcast.xml` (Sparkle).
+- **UX (`Updates.cs`):** 6-hour-throttled silent background check on startup
+  (state in `update-state.json`, downloads only — Velopack applies on next
+  launch), tray balloon when staged, tray menu **Check for Updates…** +
+  conditional **Restart to update to X**, branded `UpdateWindow`
+  (checking → downloading % → Restart now/Later; up-to-date; offline
+  error), Updates section in the Settings window.
+  `ApplyUpdatesAndRestart` cleans tray/pipe first.
+- **Migration:** 0.7.x zip users download Setup.exe ONE last time; install
+  over the legacy folder migrates settings + registration automatically
+  (rollback-dir rescue). From there, updates are automatic.
+- **Gotchas:** Velopack Setup shows a modal overwrite/repair dialog when
+  installing over a non-empty dir (5-min timeout → cancel, exit 0 without
+  installing; real users just click Update — tests used `--silent`). vpk
+  CLI needs `DOTNET_ROOT` set for its apphost. vpk-created files are
+  readable only by SYSTEM/Admins on the VM — `icacls <outdir> /grant
+  "BUILTIN\Users":(OI)(CI)RX /T` after every repack.
+
+### Installer (`windows/tools/Install-FileLore.cmd` — LEGACY zip flow)
 
 Per-user, no admin: installs to `%LOCALAPPDATA%\FileLore`, HKCU context-menu
-verb, HKCU Run key (tray autostart), Desktop + Start Menu shortcuts. Every
+verb, HKCU Run key (tray autostart), Desktop + Start Menu shortcuts.
+**Superseded for end users by the Velopack Setup.exe (0.8.0) — kept for
+reference and dev installs.** Every
 `reg add` is verified with a `reg query` read-back (`[OK]`/`[FAIL]`), upgrades
 report OLD vs NEW exe date, and it offers an Explorer restart (`/q` prints a
 note instead). `FileLore-Diagnose.cmd` collects field diagnostics (no admin)
@@ -430,11 +479,13 @@ sign_update FileLore-macOS.zip .scratch/sparkle/eddsa-private-key.pem
 #    website/public/downloads/FileLore-macOS.zip (front-page download).
 #    Update DOWNLOAD_SIZE in website/src/config.ts.
 
-# 6. Rebuild + restage the site zip, owner drags it to Netlify:
+# 6. Rebuild + restage the site zip, owner drags it to Netlify
+#    (delete the old zip first — zip update semantics keep stale entries):
 cd website && npm run build
+rm -f ~/Desktop/FileLore-website.zip
 cd dist && zip -qr ~/Desktop/FileLore-website.zip . \
-  -x 'downloads/FileLore-Windows-x64/*' 'downloads/FileLore-Windows-x64.zip' \
-     '.DS_Store' 'downloads/.DS_Store'
+  -x '.DS_Store' '*/.DS_Store'
+unzip -l ~/Desktop/FileLore-website.zip | grep -E 'Setup|releases.win.json'  # verify payloads
 
 # 7. Existing apps see the update within 24h (or via Check for Updates…).
 ```
@@ -544,15 +595,42 @@ text via UIA), `edit-and-save.ps1` (UIA tag edit + Save in the editor),
 **Deploy to the VM:** `taskkill /f /im FileLoreApp.exe` + `taskkill /f /im
 FileLore.exe` → copy new exes → relaunch tray via the schtasks pattern above.
 
-**Release zip (0.7.1 two-exe layout):** native launcher `FileLore.exe` (x64,
-from `src\FileLore.Launcher\out\x64\`) + self-contained win-x64
-`FileLoreApp.exe` + `FileLoreOverlay.dll`
-+ `Install-FileLore.cmd` + `Uninstall-FileLore.cmd` +
-`Register-FileLoreOverlay.cmd` + `Unregister-FileLoreOverlay.cmd` +
-`FileLore-Diagnose.cmd` + `README-WINDOWS.txt`
-(assets in `windows/dist-assets/`) → `website/public/downloads/FileLore-Windows-x64.zip`
-(that directory is gitignored; stale duplicate folders there are Finder junk).
-After rezip, update `DOWNLOAD_SIZE_WINDOWS` in `website/src/config.ts`.
+**Release (0.8.0 Velopack flow):** publish per RID (`win-x64` + `win-arm64`),
+copy launcher + `FileLoreOverlay.dll` + Register/Unregister cmds into the
+pack dir, then `vpk pack` per RID (vpk 1.2.0 at `C:\vpk\vpk.exe`, **prefix
+`set DOTNET_ROOT=C:\dotnet&`** or its apphost can't find the runtime):
+
+```bat
+set DOTNET_ROOT=C:\dotnet& C:\vpk\vpk.exe pack -u FileLore -v 0.8.0 ^
+  -p C:\velopack\pack-x64 -e FileLore.exe -o C:\velopack\feed\win-x64 ^
+  -r win-x64 --packTitle FileLore --packAuthors FileLore ^
+  --icon C:\filelore\src\FileLore.App\app.ico ^
+  --splashImage C:\filelore\src\FileLore.App\Resources\icon-256.png --yes
+```
+
+Ship `releases.win.json` + `RELEASES` + nupkg(s) →
+`website/public/releases/win-<rid>/` (gitignored) and
+`FileLore-win-Setup.exe` → `website/public/downloads/FileLore-Windows-Setup-<arch>.exe`;
+update sizes in `website/src/config.ts`, rebuild the site, restage the
+deploy zip (**delete ~/Desktop/FileLore-website.zip before re-zipping —
+zip update semantics keep stale entries**). Verify with `unzip -l` that the
+Setup + feeds are inside and the retired `FileLore-Windows-x64.zip` is not.
+
+**Local update-feed testing:** serve `C:\velopack\feed` over HTTP as fm —
+one-time `netsh http add urlacl url=http://+:8123/ user=fm`, then
+`.scratch/vm/httpserve.ps1` (HttpListener, streams files, logs requests +
+errors) via `feed.cmd` through runas-fm; point the app at it with
+`FILELORE_UPDATE_URL=http://localhost:8123/win-arm64` and delete
+`update-state.json` to beat the 6h throttle. After ANY repack:
+`icacls C:\velopack\feed /grant "BUILTIN\Users":(OI)(CI)RX /T` — vpk output
+is SYSTEM-only and the feed server 500s on the nupkg otherwise (the generic
+HttpListener catch masked this as a bare 500 until exceptions were logged).
+Tray-menu/UpdateWindow automation helpers: `.scratch/vm/tray-click.ps1`
+(UIA: overflow = `TopLevelWindowForOverflowXamlIsland`, right-click via
+`SetCursorPos`+`mouse_event` at BoundingRectangle center —
+GetClickablePoint throws on Win11 tray buttons; WPF ContextMenu items are
+desktop-descendant MenuItems, NOT `#32768`), `shot-updates-window.ps1`
+(minimize Terminal windows + foreground target + capture).
 
 The user tests on the Mac GUI and on a **real Intel Windows PC at work** —
 the VM is for build/smoke only.
@@ -569,7 +647,9 @@ the VM is for build/smoke only.
 - `public/screenshots/` are real captures from the live app;
   `public/filelore-demo.mp4` exists and is embedded by `src/sections/DemoVideo.tsx`
   (a better user-recorded video may replace it — see roadmap).
-- `public/downloads/` is gitignored — release zips are dropped there locally.
+- `public/downloads/` and `public/releases/win-x64|win-arm64/` are
+  gitignored — release artifacts (macOS zip + appcast, Windows Setup exes,
+  Velopack feeds) are dropped there locally.
 
 ```sh
 cd website
@@ -622,7 +702,15 @@ start.
 | xattr names + legacy fallback | `TetherCore/.../NoteStore.swift` | ✅ |
 | ADS stream name, IsSupportedPath, FindFirstStreamW | `windows/src/FileLore.Core/*.cs` | ✅ |
 | Additive link keys path/size/added | `windows/src/FileLore.Core/Note.cs` | ✅ |
-| Windows version 0.7.1 | `AppVersion.cs` + csproj `<Version>` + launcher RC | ✅ |
+| Windows version 0.8.0 | `AppVersion.cs` + csproj `<Version>` + launcher RC | ✅ |
+| Velopack 0.8.0→0.8.1 rehearsal (VM, local feed) | app.log: `0.8.1 available` → `downloaded` → `velo restarted after update: 0.8.1`; `--version` → 0.8.1; uninstall entry DisplayVersion 0.8.1 | ✅ |
+| Verb/Run-key/overlay/settings survive update | `query-fm-reg.ps1` (verb + Run → stable `current\`), dir listing, settings.json pinnedTags intact | ✅ |
+| Legacy 0.7.1 zip → Velopack migration | app.log `migration: restored settings.json/recents.json from rollback dir` + registry re-checks | ✅ |
+| No-update + offline update paths | screenshots `update-uptodate.png` / `update-offline.png`; app.log graceful `HttpRequestException` lines | ✅ |
+| Note content loads after update | editor on noted `plain.txt` shows `plain refresh test` (`note-editor2.png`) | ✅ |
+| Delta package generation | `FileLore-0.8.1-delta.nupkg` 163 KB vs 69 MB full | ✅ (local HTTP fetch used full; delta exercised by generation + Velopack selection logic) |
+| x64/arm64 PE machine types | `pe-machine.ps1`: x64 pack all 0x8664, arm64 all 0xAA64 | ✅ |
+| Website deploy zip contents | `unzip -l`: both Setup exes + both `releases/win-*` feeds, no stale `FileLore-Windows-x64.zip`, no `.DS_Store` | ✅ |
 | Selftest names | `SelfTest.cs` dispatch switch | ✅ |
 | Ctrl+Alt+T / Ctrl+Alt+F defaults | `Settings.cs` (`DefaultOpenSelection`/`DefaultSearch`) | ✅ |
 | VM "Windows 11" running, dotnet 8.0.423 | `prlctl list` + `prlctl exec … dotnet --version` | ✅ |

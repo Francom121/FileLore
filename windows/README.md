@@ -118,9 +118,13 @@ so and tells you what to remove.
   the `FileLore` value under
   `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` to disable.
 - Shortcuts are on the Desktop and in Start Menu → Programs → FileLore.
-- **Updating:** re-run `Install-FileLore.cmd` from the new zip — it stops
-  the old copy, replaces the exe, and re-registers; notes and settings are
-  kept. No uninstall needed.
+- **Updating:** automatic (0.8.0+). FileLore checks for new versions in
+  the background and downloads them quietly; the update installs itself
+  the next time the app starts. Tray menu → **Check for Updates…** (or
+  **Settings…** → Updates) checks right away and shows progress.
+  **Coming from a zip build (0.7.x)?** Download the Setup from the
+  website one last time — it migrates your settings, notes and Explorer
+  registration automatically, and from then on updates are automatic.
 
 ## For developers
 
@@ -148,8 +152,50 @@ so and tells you what to remove.
   (`Number` + `BuildDate`) — that one file feeds the tray menu label and
   `FileLore.exe --version` (forwarded to the app). Also bump `<Version>`
   in `src/FileLore.App/FileLore.App.csproj` (exe file properties), the
-  hardcoded version string near the top of `tools/Install-FileLore.cmd`,
-  and the VERSIONINFO in `src/FileLore.Launcher/FileLoreLauncher.rc`.
+  hardcoded version string near the top of `tools/Install-FileLore.cmd`
+  (legacy zip installer, kept for reference), and the VERSIONINFO in
+  `src/FileLore.Launcher/FileLoreLauncher.rc`.
+- **Auto-update (0.8.0, Velopack — MIT license):** the app ships as a
+  Velopack package (`Velopack` NuGet 1.2.0; `vpk` CLI packs releases).
+  Setup.exe installs to `%LOCALAPPDATA%\FileLore\` (`Update.exe` +
+  `current\` + `packages\`); `current\` is a STABLE path across updates,
+  so the Explorer verb, Run-key autostart and HKLM overlay registration
+  never need re-pointing. Velopack's mainExe is `FileLore.exe` (the
+  native launcher), which forwards any `--veloapp-*` hook invocation
+  headlessly (wait + propagate exit code) — hooks run through it, and
+  post-install / post-update relaunches get the branded card for free.
+  Hooks (`VelopackApp.Build()` in the explicit `App.Main`; App.xaml is a
+  Page, not an ApplicationDefinition, or the compiler generates a
+  duplicate `Main` — CS0111): after install/update,
+  `ShellIntegration.Install` (idempotent) rewrites the HKCU verb + Run
+  key, rescues `settings.json`/`recents.json` from Velopack's rollback
+  dir (Setup wipes the install folder on install-over-legacy; the hook
+  runs BEFORE the rollback dir is deleted) and cleans legacy 0.7.x flat
+  files; before uninstall it removes verb + Run value. Update feed:
+  static HTTPS dirs on the website — `releases/win-x64/` and
+  `releases/win-arm64/`, each with `releases.win.json` + legacy
+  `RELEASES` + `FileLore-x.y.z-full.nupkg` (delta nupkgs appear once a
+  second release exists; deltas are plain files, so static hosting is
+  enough). The app picks the dir by `RuntimeInformation.ProcessArchitecture`;
+  the `FILELORE_UPDATE_URL` env var overrides it (testing). `Updates.cs`:
+  6-hour-throttled silent background check (state in
+  `update-state.json`), tray balloon when a download is staged, tray menu
+  **Check for Updates…** + conditional **Restart to update to X**, and a
+  branded `UpdateWindow` (checking → downloading % → Restart now/Later;
+  up-to-date; offline error).
+- **Release runbook (Windows):** ① bump `AppVersion.cs`, csproj
+  `<Version>`, launcher `.rc` VERSIONINFO. ② `dotnet publish` per RID
+  (`win-x64`, `win-arm64`), copy the launcher, overlay dll and
+  Register/Unregister cmds into the pack dir. ③
+  `vpk pack -u FileLore -v <ver> -p <packdir> -e FileLore.exe -o <feeddir> -r <rid> --packTitle FileLore --packAuthors FileLore --icon <app.ico> --splashImage <icon-256.png> --yes`
+  (set `DOTNET_ROOT` for vpk's apphost; on a VM, `icacls` the output dir
+  for the desktop user afterwards). ④ copy `releases.win.json` +
+  `RELEASES` + nupkg(s) to `website/public/releases/win-<rid>/`, and the
+  Setup to `website/public/downloads/FileLore-Windows-Setup-<arch>.exe`;
+  update URLs/sizes in `website/src/config.ts`; rebuild the site and
+  restage the deploy zip. (Feeds and downloads are gitignored, like the
+  Mac flow.) The old zip distribution is retired — Setup.exe is the only
+  Windows download.
 - Core note store (ADS read/write, JSON envelope compatible with macOS),
   link resolver, Markdown exporter: `src/FileLore.Core/`
 - WPF app (editor with media pane + links, batch window, drop zone, search
@@ -164,7 +210,9 @@ so and tells you what to remove.
   as a disabled item above Exit; `FileLoreApp.exe --version` prints the
   same line and exits (attaches to the parent console when there is one);
   the launcher forwards `--version` to the app without showing its card.
-- Installer: `tools/Install-FileLore.cmd` verifies every registry write
+- Installer: `tools/Install-FileLore.cmd` (legacy zip distribution —
+  superseded for end users by the Velopack Setup, kept for reference and
+  dev installs) verifies every registry write
   with a read-back (`[OK]`/`[FAIL]` per entry), reports the OLD vs NEW exe
   date when upgrading, and offers to restart Explorer at the end
   (`/q` prints a note instead). Field diagnostics:
