@@ -28,13 +28,15 @@ reference links attached to the media they produced.
 
 ## Download
 
-Get the latest release from **https://filelore.netlify.app**:
+Get the latest release from **https://filelore.netlify.app** or the
+[**GitHub Releases**](https://github.com/Francom121/FileLore/releases) page:
 
 - **macOS** — `FileLore-macOS.zip` (unzip, drag to Applications). Once
   installed, the app **auto-updates itself via Sparkle** — no more manual
   downloads.
-- **Windows** — `FileLore-Windows-x64.zip` (unzip, run `Install-FileLore.cmd` —
-  a per-user installer, no admin needed).
+- **Windows** — `FileLore-Windows-Setup-x64.exe` (or `-arm64` on ARM PCs;
+  run it — per-user install, no admin needed). Once installed, the app
+  **auto-updates itself via Velopack**.
 
 Free, no accounts, no telemetry.
 
