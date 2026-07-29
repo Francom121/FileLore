@@ -76,6 +76,17 @@ static bool HasFlag(int argc, LPWSTR* argv, LPCWSTR flag)
     return false;
 }
 
+// Any argument starting with the given prefix (case-insensitive), e.g.
+// Velopack's lifecycle hooks: --veloapp-install 0.8.0, --veloapp-updated ...
+static bool HasArgWithPrefix(int argc, LPWSTR* argv, LPCWSTR prefix)
+{
+    size_t n = lstrlenW(prefix);
+    for (int i = 1; i < argc; i++)
+        if (CompareStringOrdinal(argv[i], (int)n, prefix, (int)n, TRUE) == CSTR_EQUAL)
+            return true;
+    return false;
+}
+
 // Launches FileLoreApp.exe (same folder) with our original arguments.
 // Pure mechanics — no UI; failure details land in g_launchError/g_lastError
 // so the caller's thread can decide how to report them.
@@ -437,10 +448,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int)
     //                     keeps running, so don't wait on it either.
     //   --version / -v    prints the version and exits (diagnostics).
     //   --selftest        headless verification; propagate the exit code.
+    //   --veloapp-*       Velopack lifecycle hooks (0.8.0+: the launcher is
+    //                     Velopack's --mainExe). Forward headlessly and
+    //                     propagate the exit code: the WPF app runs the hook
+    //                     (registry verb / Run key refresh, legacy cleanup)
+    //                     and exits within Velopack's 15-30 s budget.
     bool tray = HasFlag(argc, argv, L"--tray");
     bool headless = HasFlag(argc, argv, L"--version") ||
                     HasFlag(argc, argv, L"-v") ||
-                    HasFlag(argc, argv, L"--selftest");
+                    HasFlag(argc, argv, L"--selftest") ||
+                    HasArgWithPrefix(argc, argv, L"--veloapp-");
     LocalFree(argv);
 
     if (tray)
