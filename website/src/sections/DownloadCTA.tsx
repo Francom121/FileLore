@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
-import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_SIZE_WINDOWS_ARM64, DOWNLOAD_URL, DOWNLOAD_URL_DIAGNOSE, DOWNLOAD_URL_WINDOWS, DOWNLOAD_URL_WINDOWS_ARM64 } from "@/config"
-import { Download, FolderDown, MousePointerClick, ShieldCheck, PanelTop, Trash2 } from "lucide-react"
+import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_SIZE_WINDOWS_ARM64, DOWNLOAD_URL, DOWNLOAD_URL_DIAGNOSE, DOWNLOAD_URL_WINDOWS, DOWNLOAD_URL_WINDOWS_ARM64, GITHUB_RELEASES_URL } from "@/config"
+import { Download, FolderDown, MousePointerClick, ShieldCheck, PanelTop, Trash2, Github } from "lucide-react"
 
 const macSteps = [
   {
@@ -132,6 +132,18 @@ export default function DownloadCTA() {
             Get the arm64 Setup
           </a>{" "}
           ({DOWNLOAD_SIZE_WINDOWS_ARM64})
+        </p>
+        <p className="relative mt-2 inline-flex items-center gap-1.5 text-[13px] text-white/45">
+          <Github className="h-3.5 w-3.5" />
+          Open source — every version also on{" "}
+          <a
+            href={GITHUB_RELEASES_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-fl-300 underline decoration-fl-300/40 underline-offset-2 hover:text-fl-200"
+          >
+            GitHub Releases
+          </a>
         </p>
 
         {/* How to install */}

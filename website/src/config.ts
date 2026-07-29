@@ -31,3 +31,7 @@ export const DOWNLOAD_URL_DIAGNOSE = "/downloads/FileLore-Diagnose.cmd"
  * points at a placeholder that goes nowhere useful.
  */
 export const DONATE_URL = "https://ko-fi.com/filelore"
+
+/** Public source repo + Releases page. */
+export const GITHUB_URL = "https://github.com/Francom121/FileLore"
+export const GITHUB_RELEASES_URL = "https://github.com/Francom121/FileLore/releases"

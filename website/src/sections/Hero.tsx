@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import ScreenshotFrame from "@/components/ScreenshotFrame"
-import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_URL, DOWNLOAD_URL_WINDOWS } from "@/config"
-import { Download } from "lucide-react"
+import { DOWNLOAD_SIZE, DOWNLOAD_SIZE_WINDOWS, DOWNLOAD_URL, DOWNLOAD_URL_WINDOWS, GITHUB_URL } from "@/config"
+import { Download, Github } from "lucide-react"
 
 export default function Hero() {
   return (
@@ -63,9 +63,20 @@ export default function Hero() {
             >
               <a href="#how-it-works">See how it works</a>
             </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="h-12 border-white/20 bg-transparent px-7 text-base text-white/85 hover:bg-white/10 hover:text-white"
+            >
+              <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+                <Github className="mr-2 h-5 w-5" />
+                GitHub
+              </a>
+            </Button>
           </div>
           <p className="mt-4 text-[13px] text-white/45">
-            Free · Mac {DOWNLOAD_SIZE} · Windows {DOWNLOAD_SIZE_WINDOWS} · macOS 26+ / Windows 10–11
+            Free &amp; open source · Mac {DOWNLOAD_SIZE} · Windows {DOWNLOAD_SIZE_WINDOWS} · macOS 26+ / Windows 10–11
           </p>
         </div>
 
